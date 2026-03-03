@@ -74,59 +74,20 @@ The system operates in one of three modes, displayed as a status indicator in bo
 All messages between Admin and Cashier are JSON-serialized and tagged with a `type` field for routing.
 
 ```mermaid
-classDiagram
-    class LocalSyncMessage {
-        <<enumeration>>
-        TxnSync
-        TxnAck
-        StockUpdate
-        InitialSyncRequest
-        UsersSync
-        ProductsSync
-        SettingsSync
-        CashierLogin
-        CashierLogout
-        Ping
-        Pong
-    }
-
-    class TxnSync {
-        Transaction transaction
-        TransactionItem[] items
-    }
-
-    class TxnAck {
-        String id
-        Boolean success
-    }
-
-    class StockUpdate {
-        Product product
-    }
-
-    class InitialSyncRequest {
-        (no fields)
-    }
-
-    class UsersSync {
-        User[] users
-    }
-
-    class ProductsSync {
-        Product[] products
-    }
-
-    class SettingsSync {
-        Setting[] settings
-    }
-
-    LocalSyncMessage --> TxnSync
-    LocalSyncMessage --> TxnAck
-    LocalSyncMessage --> StockUpdate
-    LocalSyncMessage --> InitialSyncRequest
-    LocalSyncMessage --> UsersSync
-    LocalSyncMessage --> ProductsSync
-    LocalSyncMessage --> SettingsSync
+graph LR
+    subgraph LocalSyncMessage["LocalSyncMessage (enum)"]
+        TxnSync["TxnSync<br/><i>transaction, items[]</i>"]
+        TxnAck["TxnAck<br/><i>id, success</i>"]
+        StockUpdate["StockUpdate<br/><i>product</i>"]
+        InitialSyncRequest["InitialSyncRequest<br/><i>(no fields)</i>"]
+        UsersSync["UsersSync<br/><i>users[]</i>"]
+        ProductsSync["ProductsSync<br/><i>products[]</i>"]
+        SettingsSync["SettingsSync<br/><i>settings[]</i>"]
+        CashierLogin["CashierLogin"]
+        CashierLogout["CashierLogout"]
+        Ping["Ping"]
+        Pong["Pong"]
+    end
 ```
 
 ### Message Descriptions

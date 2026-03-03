@@ -124,7 +124,7 @@ Records every completed sale. The `sync_status` field tracks whether this transa
 | `id` | TEXT | PRIMARY KEY | UUID v4 |
 | `total` | REAL | NOT NULL | Total sale amount |
 | `cashier` | TEXT | NOT NULL | Name of the cashier who processed the sale |
-| `payment_method` | TEXT | NOT NULL | "Cash" or "GCash" |
+| `payment_method` | TEXT | NOT NULL | "Cash", "Card", "GCash", or "Maya" |
 | `amount_paid` | REAL | NOT NULL | Amount tendered by customer |
 | `created_at` | TEXT | NOT NULL, INDEXED | ISO 8601 timestamp |
 | `sync_status` | TEXT | NOT NULL, INDEXED | `pending`, `synced`, or `failed` |
@@ -223,7 +223,7 @@ The DAL provides a clean TypeScript API over raw SQL. No page component writes S
 | `getDailyRevenue(days)` | Revenue per day for the last N days |
 | `getHourlyDistribution()` | Transaction count by hour of day |
 | `getTopProducts(limit)` | Best-selling products by quantity/revenue |
-| `getPaymentMethodBreakdown()` | Cash vs GCash split |
+| `getPaymentMethodBreakdown()` | Breakdown by payment method (Cash, Card, GCash, Maya) |
 | `getTodaySummary()` | Today's transaction count and total revenue |
 | `getPendingSyncTransactions()` | Transactions waiting to be synced |
 

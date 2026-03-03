@@ -24,7 +24,7 @@
 | Feature | Description |
 |---------|-------------|
 | 🔖 **Barcode Scanning** | Instant product lookup via USB barcode scanner — no focus required |
-| 💰 **Sales Processing** | Fast checkout with cash & GCash, keyboard shortcuts for speed |
+| 💰 **Sales Processing** | Fast checkout with Cash, Card, GCash & Maya payments, keyboard shortcuts for speed |
 | 📦 **Inventory Management** | Add, edit, delete products with low-stock alerts and category filtering |
 | 📊 **Reports & Analytics** | Daily/weekly/monthly sales reports, charts, CSV/XLSX export, printable Z-Reports |
 | 🤖 **AI Analytics** | Groq-powered sales trend analysis and stock predictions (Admin only) |

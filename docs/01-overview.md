@@ -53,7 +53,7 @@ graph LR
 | Feature | Description |
 |---------|-------------|
 | **Barcode Scanning** | Scan product barcodes to instantly display product details and add items to the transaction |
-| **Sales Transaction Processing** | Add/remove items, calculate totals, accept cash or GCash payments, generate receipts |
+| **Sales Transaction Processing** | Add/remove items, calculate totals, accept Cash, Card, GCash, or Maya payments, generate receipts |
 | **Inventory Management** | Add, edit, delete, and search products — track stock levels per item |
 | **Automatic Inventory Update** | Stock is automatically deducted when a sale is completed, in real time |
 | **Low Stock Alerts** | Notifications when inventory falls below the configured threshold |
@@ -95,7 +95,7 @@ graph LR
 
 | Constraint | Detail |
 |------------|--------|
-| **Payment methods** | Cash and GCash only — no credit/debit card processing |
+| **Payment methods** | Cash, Card, GCash, and Maya — card and e-wallet payments are recorded as the selected method with an optional reference number |
 | **Scanning technology** | USB barcode scanners only — no RFID or QR code scanning for products |
 | **Loyalty programs** | Not included — no customer loyalty or rewards system |
 | **Third-party integrations** | No integration with external accounting software or ERP platforms |

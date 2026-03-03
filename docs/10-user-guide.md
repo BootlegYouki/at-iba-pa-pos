@@ -120,8 +120,9 @@ graph LR
    - **Amount Due** is displayed prominently
    - **Quick Cash Buttons** (₱50, ₱100, ₱500, ₱1000, Exact) for fast entry
    - **Custom Amount** input for exact change
-3. Select payment method: **Cash** or **GCash**
-   - For GCash: enter the reference number
+3. Select payment method: **Cash**, **Card**, **GCash**, or **Maya**
+   - For Card, GCash, or Maya: enter the reference number
+   - For non-Cash methods, the tendered amount is automatically set to the exact total
 4. Click **"Confirm Payment"** (or press Enter)
 5. **Change due** is displayed
 6. The **customer display** shows the receipt with a QR code
@@ -217,7 +218,7 @@ Navigate to **Reports** from the sidebar.
 | Report | Chart Type | Shows |
 |--------|-----------|-------|
 | **Sales Trend** | Line chart | Revenue per day over selected range |
-| **Payment Methods** | Pie/donut chart | Cash vs GCash breakdown |
+| **Payment Methods** | Pie/donut chart | Breakdown by payment method (Cash, Card, GCash, Maya) |
 | **Peak Hours** | Bar chart | Transaction count by hour |
 | **Top Products** | Horizontal bar chart | Revenue by product |
 
