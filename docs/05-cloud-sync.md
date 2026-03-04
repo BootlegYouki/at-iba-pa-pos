@@ -8,6 +8,42 @@ Cloud sync is a **background process** that runs alongside normal POS operations
 
 ---
 
+## Runtime Cloud Configuration
+
+Supabase credentials are **not compiled into the binary**. Instead, each store owner configures their own Supabase project at runtime through the Settings UI.
+
+```mermaid
+flowchart LR
+    Settings["Settings UI"] --> Store["Tauri Store<br/>(.settings.dat)"]
+    Store --> Rust["Rust Backend<br/>(DbState)"]
+    Store --> Frontend["Frontend<br/>(supabase.ts)"]
+    Rust --> SyncLoop["Sync Loop<br/>(starts/stops dynamically)"]
+    Frontend --> Realtime["Realtime Subscriptions"]
+```
+
+### Credential Storage
+
+| Key | Storage | Description |
+|-----|---------|-------------|
+| `supabaseUrl` | `.settings.dat` (JSON) | The Supabase project URL (e.g., `https://xxxxx.supabase.co`) |
+| `supabaseAnonKey` | `.settings.dat` (JSON) | The Supabase anon/public key |
+
+Credentials are read from the Tauri Store on app startup. If none are configured, the app starts in **offline mode** and cloud sync is skipped entirely.
+
+### Runtime Commands
+
+| Command | Description |
+|---------|-------------|
+| `update_cloud_config(url, key)` | Saves new credentials, cancels the existing sync loop, and starts a new one |
+| `clear_cloud_config()` | Removes credentials and stops the sync loop |
+| `db_sync(entity?)` | Triggers a manual sync cycle (reads credentials from `DbState`) |
+
+### Auto-Provisioning
+
+When a user connects to a fresh Supabase project, the app detects missing tables (HTTP `42P01` error) and shows a **copyable SQL migration** that the user pastes into the Supabase SQL Editor. Once the tables exist, sync starts automatically.
+
+---
+
 ## Sync Direction by Data Type
 
 ```mermaid
@@ -81,9 +117,11 @@ flowchart TD
 
 ## Sync Cycle Detail
 
-Each sync cycle consists of three sequential phases:
+Each sync cycle consists of sequential push and pull phases. The Admin pushes products, users, settings, and transactions; the Cashier pushes only transactions. Both pull everything.
 
-### Phase 1: Push Transactions (Upstream)
+### Push Phase (Upstream)
+
+All entities with `sync_status = 'pending'` are pushed in **batches of 50** per cycle:
 
 ```mermaid
 sequenceDiagram
@@ -91,7 +129,7 @@ sequenceDiagram
     participant Sync as Sync Engine
     participant Cloud as Supabase
 
-    Sync->>Local: SELECT * FROM transactions<br/>WHERE sync_status = 'pending'
+    Sync->>Local: SELECT * FROM transactions<br/>WHERE sync_status = 'pending' LIMIT 50
     Local-->>Sync: pending_txns[]
     
     loop For each pending transaction
@@ -104,7 +142,13 @@ sequenceDiagram
     end
 ```
 
-### Phase 2: Pull Products (Downstream)
+The Admin also pushes products, users, and settings with `sync_status = 'pending'` — these are changes made locally (e.g., adding a product, creating a user).
+
+> **LAN-aware optimization:** When a Cashier has an active LAN connection to the Admin, it **skips pushing transactions to the cloud**. The Admin receives them via WebSocket and pushes them to the cloud on the Cashier's behalf. This prevents race conditions where cloud sync marks transactions as `synced` before the LAN send task picks them up.
+
+### Pull Phase (Downstream)
+
+Data is pulled from Supabase using **paginated flat queries** (1,000 records per page) instead of embedded resources. This avoids the slow JSON aggregation that PostgREST performs for embedded resources.
 
 ```mermaid
 sequenceDiagram
@@ -112,32 +156,28 @@ sequenceDiagram
     participant Sync as Sync Engine
     participant Cloud as Supabase
 
-    Sync->>Cloud: GET /rest/v1/products?select=*
-    Cloud-->>Sync: products[]
+    Note over Sync,Cloud: Paginated pull (1,000 per page)
+    Sync->>Cloud: GET /rest/v1/products?limit=1000&offset=0
+    Cloud-->>Sync: products[] (page 1)
+    Sync->>Cloud: GET /rest/v1/products?limit=1000&offset=1000
+    Cloud-->>Sync: products[] (page 2, if any)
     
+    Note over Sync,Local: Bulk upsert in single SQL transaction
+    Sync->>Local: BEGIN TRANSACTION
     loop For each product
-        Sync->>Local: UPSERT into products<br/>(INSERT OR REPLACE)
+        Sync->>Local: INSERT OR REPLACE INTO products<br/>WHERE sync_status != 'pending'
     end
-    
-    Sync->>Local: DELETE local products<br/>not present in cloud response
+    Sync->>Local: COMMIT
+
+    Note over Sync,Cloud: Same pattern for transactions, users, settings
 ```
 
-### Phase 3: Pull Users & Settings (Downstream)
+**Smart conflict avoidance:** The `WHERE sync_status != 'pending'` clause ensures cloud data never overwrites local pending changes.
 
-```mermaid
-sequenceDiagram
-    participant Local as Local SQLite
-    participant Sync as Sync Engine
-    participant Cloud as Supabase
-
-    Sync->>Cloud: GET /rest/v1/users?select=*
-    Cloud-->>Sync: users[]
-    Sync->>Local: UPSERT users locally
-    
-    Sync->>Cloud: GET /rest/v1/settings?select=*
-    Cloud-->>Sync: settings[]
-    Sync->>Local: UPSERT settings locally
-```
+| Mode | Max Pages per Entity | Max Records |
+|------|---------------------|-------------|
+| Admin | 50 | 50,000 |
+| Cashier | 5 | 5,000 |
 
 ---
 

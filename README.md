@@ -93,6 +93,7 @@ Both apps are built as standalone Windows `.exe` installers.
 | 8 | [AI Analytics](docs/08-ai-analytics.md) | Groq integration, use cases, constraints |
 | 9 | [Security](docs/09-security.md) | Authentication, encryption, RLS |
 | 10 | [User Guide](docs/10-user-guide.md) | Installation, cashier guide, admin guide |
+| 11 | [Performance](docs/11-performance.md) | Database tuning, indexes, batch ops, pagination |
 
 ---
 

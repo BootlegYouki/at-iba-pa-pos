@@ -94,11 +94,14 @@ flowchart TD
 
 | Key Type | Storage | Purpose |
 |----------|---------|---------|
-| **Supabase anon key** | Compiled into app via `build.rs` (env vars) | Public key for Supabase client — safe to embed (RLS protects data) |
+| **Supabase anon key** | Tauri Store (`.settings.dat`) — configured at runtime via Settings UI | Public key for Supabase client — safe to store locally (RLS protects data) |
+| **Supabase URL** | Tauri Store (`.settings.dat`) — configured at runtime via Settings UI | Each store owner's own Supabase project URL |
 | **Supabase service key** | Never in client | Server-side only — used in Edge Functions |
 | **Groq API key** | Supabase Edge Function env var | Never touches the client application |
 
-The Supabase `anon` key is intentionally public — all data access is controlled by **Row Level Security (RLS)** policies on the database.
+> **Note:** Supabase credentials are **not compiled into the binary**. There is no `.env` file or `env!()` macro embedding. Each store owner configures their own isolated Supabase project through the Settings UI, and credentials are stored in the Tauri Store (`.settings.dat` JSON file in the app data directory). If no credentials are set, the app runs in fully offline mode.
+
+The Supabase `anon` key is intentionally public — all data access is controlled by **Row Level Security (RLS)** policies on the database. Since each store owner runs their own isolated Supabase project, RLS policies use `USING (true)` for simplicity — the anon key is scoped to their project only.
 
 ---
 

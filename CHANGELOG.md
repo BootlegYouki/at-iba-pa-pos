@@ -4,6 +4,44 @@ All notable changes to the AT-IBA-PA MINIMART POS system will be documented in t
 
 ---
 
+## [1.1.0] — 2026-03-05
+
+### 🛠 Changed
+
+**Runtime Cloud Configuration**
+- Removed compile-time `.env` / `env!()` Supabase credential embedding
+- Supabase URL and Anon Key are now configured at runtime via Settings UI
+- Credentials stored in Tauri Store (`.settings.dat`) — persists across restarts
+- App starts in offline mode when no credentials are set
+- Added `update_cloud_config`, `clear_cloud_config` Tauri commands for runtime credential management
+- Sync loop dynamically starts/stops when credentials are added/removed
+- Added auto-provisioning flow: app detects missing tables and shows copyable SQL migration
+
+**Sync Engine Improvements**
+- Paginated cloud fetch (1,000 records per page) to avoid PostgREST timeouts
+- Flat queries instead of embedded resources for faster pulls
+- Batched push with LIMIT 50 per cycle
+- Bulk upserts wrapped in single SQL transactions
+- Smart conflict avoidance: cloud data never overwrites local pending changes
+- LAN-aware sync: Cashier skips cloud push when LAN-connected to Admin
+- Selective entity sync (`entity` parameter) for targeted sync cycles
+
+**Performance Optimizations**
+- Batch write operations via `db_execute_batch` (single IPC round-trip per sale)
+- Single JOIN queries replacing N+1 patterns for transaction + items loading
+- Server-side pagination with LIMIT/OFFSET and SQL-level aggregation
+- Lazy-loaded transaction line items (fetched on click, not on page load)
+- Debounced sync-driven UI refreshes (800ms)
+- Shallow equality checks to prevent unnecessary React re-renders
+- VACUUM after factory reset for accurate DB size reporting
+
+### 📝 Documentation
+- Added [Performance Optimizations](docs/11-performance.md) document
+- Updated [Cloud Sync](docs/05-cloud-sync.md) with runtime credential configuration, paginated pulls, batched pushes, and LAN-aware sync
+- Updated [Security](docs/09-security.md) to reflect runtime Supabase key storage
+
+---
+
 ## [1.0.0] — 2026-03-03
 
 ### 🚀 Initial Release
