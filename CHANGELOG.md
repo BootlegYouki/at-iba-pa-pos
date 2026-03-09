@@ -4,6 +4,46 @@ All notable changes to the AT-IBA-PA MINIMART POS system will be documented in t
 
 ---
 
+## [1.2.0] — 2025-07-17
+
+### ✨ Added
+
+**Cloud Credential Auto-Propagation via LAN**
+- Admin automatically broadcasts Supabase credentials (`CloudCredentials { url, key }`) to all connected cashiers when:
+  - A cashier connects and sends `InitialSyncRequest`
+  - Admin updates cloud config in Settings
+- Cashier stores received credentials encrypted (AES-256-GCM) in Tauri Store
+- Cashier emits `cloud-credentials-received` event for frontend to pick up and start cloud sync
+- Eliminates manual cloud configuration on every cashier terminal
+
+**Cloud Disconnect Propagation**
+- Added `CloudCredentialsCleared` LAN message variant
+- When Admin clears cloud configuration, all connected cashiers:
+  - Clear stored encrypted credentials
+  - Abort active cloud sync tasks
+  - Emit `cloud-credentials-cleared` event to frontend
+
+### 🛠 Changed
+
+**Manual LAN Disconnect Behavior**
+- Manual disconnect now triggers a LAN scan to show available Admin servers
+- Added `manuallyDisconnectedRef` guard to prevent auto-reconnect after manual disconnect
+- Auto-connect resumes only when user explicitly reconnects or app restarts
+
+### 🐛 Fixed
+
+**Disconnect Button Not Working**
+- Fixed `disconnect_admin` Tauri command that was immediately restarting `run_local_client_loop_with_discovery` after clearing connection state, causing reconnection within seconds
+- Removed the auto-discovery restart from `disconnect_admin` — disconnect now fully disconnects
+
+### 📝 Documentation
+- Updated [Networking](docs/04-networking.md): added `CloudCredentials` and `CloudCredentialsCleared` to message protocol, new Scenario D (cloud credential propagation), updated reconnection table with manual disconnect and cloud credential behaviors
+- Updated [Cloud Sync](docs/05-cloud-sync.md): added LAN credential propagation section, updated runtime commands with LAN broadcast behavior
+- Updated [Security](docs/09-security.md): added AES-256-GCM encrypted cloud credential storage, updated threat model
+- Updated [User Guide](docs/10-user-guide.md): added cloud config auto-propagation to setup steps, manual disconnect behavior, cloud sync troubleshooting
+
+---
+
 ## [1.1.0] — 2026-03-05
 
 ### 🛠 Changed

@@ -285,8 +285,7 @@ graph TB
 2. Install **Admin IMS** on the manager's PC
 3. Install **Cashier POS** on each checkout terminal
 4. Launch the **Admin app first** — it starts the sync server automatically
-5. Launch the **Cashier apps** — they will **auto-discover** the Admin and connect
-
+5. Launch the **Cashier apps** — they will **auto-discover** the Admin and connect6. Configure **Supabase cloud sync** on the Admin only — credentials are **automatically pushed** to all connected cashiers via LAN (encrypted at rest on each cashier)
 ### Auto-Discovery
 
 The Admin broadcasts a UDP beacon every 3 seconds. Cashier apps listen for this beacon and connect automatically — no IP address configuration needed.
@@ -296,7 +295,13 @@ If auto-discovery doesn't work (e.g., on a VLAN), you can manually set the Admin
 1. On the **Cashier app**, click the **gear icon**
 2. Enter the **Admin PC's IP address** in the "Admin Local IP" field
 3. The cashier will connect directly
+### Manual Disconnect Behavior
 
+When you manually disconnect a cashier from the Admin (via the Settings gear icon):
+
+- The cashier performs a **LAN scan** to discover available Admin servers
+- The cashier does **not** automatically reconnect — you must click "Connect" to re-establish the link
+- Auto-connect resumes normally after you explicitly reconnect or restart the app
 ### Firewall Configuration
 
 On the **Admin PC**, allow these ports through Windows Firewall:
@@ -324,8 +329,7 @@ On the **Admin PC**, allow these ports through Windows Firewall:
 | Both on same network? | Ensure same router/switch, no VLAN separation |
 | Admin app running? | Start Admin IMS before Cashier POS |
 | Firewall blocking? | Allow ports 3080 (TCP) and 3081 (UDP) on Admin PC |
-| Auto-discovery failing? | Enter Admin IP manually in Cashier settings |
-
+| Auto-discovery failing? | Enter Admin IP manually in Cashier settings || Manually disconnected? | After a manual disconnect, auto-connect is disabled. Click "Connect" to reconnect. |
 ### Sync indicator shows "Offline"
 
 | Status | Meaning | Action |
@@ -339,6 +343,13 @@ On the **Admin PC**, allow these ports through Windows Firewall:
 - Ensure the Cashier is **connected to Admin** (check sync indicator)
 - Products sync from Admin/Cloud to Cashier on initial connection
 - Try restarting the Cashier app to trigger a fresh sync
+
+### Cloud sync not working on Cashier
+
+- Cloud credentials are **automatically received from Admin** via LAN — no manual configuration needed on the cashier
+- Ensure the Cashier is **connected to Admin via LAN** and the Admin has cloud sync configured
+- If the Admin clears cloud config, all cashiers will automatically stop cloud sync
+- Check the "Cloud Sync" section in the Cashier settings — it should show the connection status (read-only)
 
 ### Database reset
 

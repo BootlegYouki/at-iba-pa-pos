@@ -83,6 +83,8 @@ graph LR
         UsersSync["UsersSync<br/><i>users[]</i>"]
         ProductsSync["ProductsSync<br/><i>products[]</i>"]
         SettingsSync["SettingsSync<br/><i>settings[]</i>"]
+        CloudCredentials["CloudCredentials<br/><i>url, key</i>"]
+        CloudCredentialsCleared["CloudCredentialsCleared<br/><i>(no fields)</i>"]
         CashierLogin["CashierLogin"]
         CashierLogout["CashierLogout"]
         Ping["Ping"]
@@ -97,10 +99,12 @@ graph LR
 | `TxnSync` | Cashier → Admin | Send a completed transaction with its line items |
 | `TxnAck` | Admin → Cashier | Acknowledge successful receipt of a transaction |
 | `StockUpdate` | Admin → Cashier | Push a product stock change |
-| `InitialSyncRequest` | Cashier → Admin | Request full initial data (users, products, settings) |
+| `InitialSyncRequest` | Cashier → Admin | Request full initial data (users, products, settings, cloud credentials) |
 | `UsersSync` | Admin → Cashier | Bulk push all users (response to InitialSyncRequest) |
 | `ProductsSync` | Admin → Cashier | Bulk push all active products |
 | `SettingsSync` | Admin → Cashier | Bulk push all settings |
+| `CloudCredentials` | Admin → Cashier | Push Supabase URL and anon key (on initial sync or config change) |
+| `CloudCredentialsCleared` | Admin → Cashier | Notify that cloud credentials have been removed on Admin |
 | `CashierLogin` | Cashier → Admin | Notify that a cashier has logged in |
 | `CashierLogout` | Cashier → Admin | Notify that a cashier has logged out |
 | `Ping` / `Pong` | Both | Connection keep-alive |
@@ -231,9 +235,46 @@ sequenceDiagram
     Admin-->>Cashier: SettingsSync { settings }
     Admin->>Admin: Query all active products
     Admin-->>Cashier: ProductsSync { products }
+    Admin->>Admin: Check if cloud config exists
+    opt Cloud configured on Admin
+        Admin-->>Cashier: CloudCredentials { url, key }
+    end
     Cashier->>Cashier: Upsert all data locally
+    Cashier->>Cashier: Store encrypted cloud credentials (AES-256-GCM)
     Cashier->>Cashier: Emit 'sync-complete' to UI
 ```
+
+### Scenario D: Cloud credential propagation
+
+Cloud credentials (Supabase URL and anon key) are automatically propagated from Admin to all connected cashiers via LAN, eliminating manual configuration.
+
+```mermaid
+sequenceDiagram
+    participant Admin as Admin App
+    participant Cashier1 as Cashier 1
+    participant Cashier2 as Cashier 2
+
+    Note over Admin: Admin changes cloud config in Settings
+    Admin->>Cashier1: CloudCredentials { url, key }
+    Admin->>Cashier2: CloudCredentials { url, key }
+    Cashier1->>Cashier1: Encrypt & store in Tauri Store
+    Cashier1->>Cashier1: Emit 'cloud-credentials-received'
+    Cashier2->>Cashier2: Encrypt & store in Tauri Store
+    Cashier2->>Cashier2: Emit 'cloud-credentials-received'
+
+    Note over Admin: Admin clears cloud config
+    Admin->>Cashier1: CloudCredentialsCleared
+    Admin->>Cashier2: CloudCredentialsCleared
+    Cashier1->>Cashier1: Clear stored credentials & abort cloud sync
+    Cashier2->>Cashier2: Clear stored credentials & abort cloud sync
+```
+
+**Trigger points for `CloudCredentials`:**
+- On `InitialSyncRequest` (cashier connects for the first time or reconnects)
+- On admin config change (admin updates Supabase URL/key in Settings)
+
+**Trigger point for `CloudCredentialsCleared`:**
+- On admin config clear (admin removes cloud configuration in Settings)
 
 ---
 
@@ -310,6 +351,9 @@ Both ports must be open in Windows Firewall on the Admin PC for LAN sync to work
 |----------|----------|
 | Admin goes offline | Cashier retries every 10 seconds |
 | Admin IP changes (DHCP) | Cashier detects new beacon, auto-reconnects |
-| Cashier disconnects | Admin removes from active client list |
+| Cashier disconnects (manual) | Admin removes from active client list. Cashier triggers a LAN scan but does **not** auto-reconnect — `manuallyDisconnectedRef` guard prevents auto-connect until user explicitly reconnects |
+| Cashier disconnects (network drop) | Admin removes from active client list. Auto-discovery resumes normally and will auto-reconnect when Admin is found |
 | WebSocket drops mid-message | Transaction stays `'pending'` locally, re-sent on reconnect |
 | Multiple cashiers connect | Admin handles each on separate async tasks (broadcast channel) |
+| Admin cloud config changes | `CloudCredentials` broadcast to all connected cashiers in real-time |
+| Admin cloud config cleared | `CloudCredentialsCleared` broadcast; cashiers clear stored creds and abort cloud sync |

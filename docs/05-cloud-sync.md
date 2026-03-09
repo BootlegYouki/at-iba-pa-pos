@@ -34,13 +34,51 @@ Credentials are read from the Tauri Store on app startup. If none are configured
 
 | Command | Description |
 |---------|-------------|
-| `update_cloud_config(url, key)` | Saves new credentials, cancels the existing sync loop, and starts a new one |
-| `clear_cloud_config()` | Removes credentials and stops the sync loop |
+| `update_cloud_config(url, key)` | Saves new credentials, cancels the existing sync loop, starts a new one, and **broadcasts `CloudCredentials` to all connected cashiers via LAN** |
+| `clear_cloud_config()` | Removes credentials, stops the sync loop, and **broadcasts `CloudCredentialsCleared` to all connected cashiers via LAN** |
 | `db_sync(entity?)` | Triggers a manual sync cycle (reads credentials from `DbState`) |
 
 ### Auto-Provisioning
 
 When a user connects to a fresh Supabase project, the app detects missing tables (HTTP `42P01` error) and shows a **copyable SQL migration** that the user pastes into the Supabase SQL Editor. Once the tables exist, sync starts automatically.
+
+---
+
+## Cloud Credential Propagation via LAN
+
+Cashier terminals do not need to be individually configured with Supabase credentials. When the Admin is connected to cashiers via LAN, cloud credentials are **automatically propagated**.
+
+### How It Works
+
+```mermaid
+flowchart TD
+    AdminConfig["Admin configures Supabase\nin Settings UI"] --> BroadcastCreds["Broadcast CloudCredentials\n{url, key} to all cashiers"]
+    BroadcastCreds --> CashierReceive["Cashier receives credentials"]
+    CashierReceive --> Encrypt["Encrypt with AES-256-GCM\n(derived from machine-specific key)"]
+    Encrypt --> Store["Store encrypted in Tauri Store\n(.settings.dat)"]
+    Store --> UpdateState["Update DbState\n(cloud_url, cloud_key)"]
+    UpdateState --> EmitEvent["Emit 'cloud-credentials-received'\nto frontend"]
+    EmitEvent --> StartSync["Frontend picks up creds\nand starts cloud sync"]
+```
+
+### Propagation Triggers
+
+| Trigger | Message Sent | Behavior |
+|---------|-------------|----------|
+| Cashier sends `InitialSyncRequest` | `CloudCredentials` | Admin checks if cloud config exists and includes it in the initial sync response |
+| Admin updates cloud config | `CloudCredentials` | Broadcast to all currently-connected cashiers immediately |
+| Admin clears cloud config | `CloudCredentialsCleared` | Broadcast to all cashiers; each clears stored creds, aborts active cloud sync, and emits `'cloud-credentials-cleared'` to frontend |
+
+### Credential Storage on Cashier
+
+| Field | Storage Key | Encryption |
+|-------|------------|------------|
+| Supabase URL | `cloud_url` in Tauri Store | AES-256-GCM |
+| Supabase Anon Key | `cloud_key` in Tauri Store | AES-256-GCM |
+
+Credentials are encrypted at rest using AES-256-GCM with a machine-derived key before being written to the Tauri Store. On app startup, if encrypted credentials exist, they are decrypted and loaded into `DbState` for use by the sync loop.
+
+> **Important:** Cashiers never expose the Supabase credentials in their Settings UI. The cloud configuration section shows only the connection status and is read-only — all configuration is managed centrally from the Admin.
 
 ---
 

@@ -203,6 +203,7 @@ flowchart TD
 |------|-----------|
 | **Local SQLite** | Stored in `%APPDATA%` — protected by Windows user account |
 | **Passwords/PINs** | bcrypt hashed — irreversible |
+| **Cloud credentials (Cashier)** | AES-256-GCM encrypted in Tauri Store — machine-derived key |
 | **Cloud Postgres** | Supabase managed encryption at rest |
 | **Backup** | Cloud sync provides automatic backup |
 
@@ -211,7 +212,7 @@ flowchart TD
 | Path | Protection |
 |------|-----------|
 | **App ↔ Supabase** | TLS (HTTPS) |
-| **App ↔ App (LAN)** | Unencrypted WebSocket (closed network) |
+| **App ↔ App (LAN)** | Unencrypted WebSocket (closed network) — cloud credentials sent as `CloudCredentials` message are encrypted at rest on arrival |
 | **App ↔ Groq** | Via Edge Function (TLS) — app never connects directly |
 
 ---
@@ -222,6 +223,7 @@ flowchart TD
 |--------|-----------|
 | **Brute-force PIN/password** | bcrypt with cost 12 — each attempt takes ~250ms |
 | **API key theft** | Keys stored server-side in Edge Functions, not in client binary |
+| **Cloud cred interception (LAN)** | LAN is a closed network; credentials are AES-256-GCM encrypted at rest on cashier |
 | **Unauthorized LAN access** | Admin restricts connections to local subnet |
 | **Data loss (hardware failure)** | Cloud sync provides automatic backup to Supabase |
 | **Unauthorized access (walkaway)** | Auto-logout timer on cashier terminals |

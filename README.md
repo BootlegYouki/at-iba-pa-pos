@@ -65,15 +65,19 @@ Both apps are built as standalone Windows `.exe` installers.
 <details>
 <summary>Click to expand screenshots</summary>
 
-> Screenshots will be added here.
+### Admin System
+<img src="assets/screenshots/admin/admin%20dashboard.png" width="400" alt="Admin Dashboard">
+<img src="assets/screenshots/admin/inventory%20page.png" width="400" alt="Inventory Page">
+<img src="assets/screenshots/admin/admin%20reports%20page.png" width="400" alt="Reports Page">
+<img src="assets/screenshots/admin/admin%20transactions%20page.png" width="400" alt="Transactions Page">
 
-| Screen | Preview |
-|--------|---------|
-| Cashier POS | *Coming soon* |
-| Admin Dashboard | *Coming soon* |
-| Inventory Management | *Coming soon* |
-| Reports & Charts | *Coming soon* |
-| Customer Display | *Coming soon* |
+### Cashier POS
+<img src="assets/screenshots/cashier/cashier%20pos.png" width="400" alt="Cashier POS">
+<img src="assets/screenshots/cashier/cashier%20cart.png" width="400" alt="Cashier Cart">
+
+### Customer Display & Receipt
+<img src="assets/screenshots/cashier/customer%20screen%20cart.png" width="400" alt="Customer Display">
+<img src="assets/screenshots/cashier/e-receipt%20website%20mobile.png" width="200" alt="E-Receipt Mobile">
 
 </details>
 
@@ -94,6 +98,7 @@ Both apps are built as standalone Windows `.exe` installers.
 | 9 | [Security](docs/09-security.md) | Authentication, encryption, RLS |
 | 10 | [User Guide](docs/10-user-guide.md) | Installation, cashier guide, admin guide |
 | 11 | [Performance](docs/11-performance.md) | Database tuning, indexes, batch ops, pagination |
+| 12 | [Database Schema](docs/database_schema.md) | Full SQLite structure, tables, and fields |
 
 ---
 
