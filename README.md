@@ -37,16 +37,16 @@
 
 | Feature | Description |
 |---------|-------------|
-| 🔖 **Barcode Scanning** | Instant product lookup via USB barcode scanner — no focus required |
-| 💰 **Sales Processing** | Fast checkout with Cash, Card, GCash & Maya payments, keyboard shortcuts for speed |
-| 📦 **Inventory Management** | Add, edit, delete products with low-stock alerts and category filtering |
-| 📊 **Reports & Analytics** | Daily/weekly/monthly sales reports, charts, CSV/XLSX export, printable Z-Reports |
-| 🤖 **AI Analytics** | Groq-powered sales trend analysis and stock predictions (Admin only) |
-| 🖥️ **Customer Display** | Second-screen support showing live cart and QR digital receipts |
-| 🔄 **Local Network Sync** | Admin and Cashier sync over LAN when internet is unavailable |
-| ☁️ **Cloud Backup** | Automatic background sync to Supabase when online |
-| 🌙 **Dark Mode** | System-aware theme with manual toggle |
-| ⚡ **Offline-First** | Fully operational without internet — zero downtime |
+| **Barcode Scanning** | Instant product lookup via USB barcode scanner — no focus required |
+| **Sales Processing** | Fast checkout with Cash, Card, GCash & Maya payments, keyboard shortcuts for speed |
+| **Inventory Management** | Add, edit, delete products with low-stock alerts and category filtering |
+| **Reports & Analytics** | Daily/weekly/monthly sales reports, charts, CSV/XLSX export, printable Z-Reports |
+| **AI Analytics** | Groq-powered sales trend analysis and stock predictions (Admin only) |
+| **Customer Display** | Second-screen support showing live cart and QR digital receipts |
+| **Local Network Sync** | Admin and Cashier sync over LAN when internet is unavailable |
+| **Cloud Backup** | Automatic background sync to Supabase when online |
+| **Dark Mode** | System-aware theme with manual toggle |
+| **Offline-First** | Fully operational without internet — zero downtime |
 
 ---
 
