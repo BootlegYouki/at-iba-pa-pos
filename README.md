@@ -66,18 +66,28 @@ Both apps are built as standalone Windows `.exe` installers.
 <summary>Click to expand screenshots</summary>
 
 ### Admin System
-<img src="assets/screenshots/admin/admin%20dashboard.png" width="400" alt="Admin Dashboard">
-<img src="assets/screenshots/admin/inventory%20page.png" width="400" alt="Inventory Page">
-<img src="assets/screenshots/admin/admin%20reports%20page.png" width="400" alt="Reports Page">
-<img src="assets/screenshots/admin/admin%20transactions%20page.png" width="400" alt="Transactions Page">
+<img src="assets/screenshots/admin/admin%20dashboard.png" width="800" alt="Admin Dashboard"><br><br>
+<img src="assets/screenshots/admin/inventory%20page.png" width="800" alt="Inventory Page"><br><br>
+<img src="assets/screenshots/admin/admin%20reports%20page.png" width="800" alt="Reports Page"><br><br>
+<img src="assets/screenshots/admin/admin%20transactions%20page.png" width="800" alt="Transactions Page">
 
 ### Cashier POS
-<img src="assets/screenshots/cashier/cashier%20pos.png" width="400" alt="Cashier POS">
-<img src="assets/screenshots/cashier/cashier%20cart.png" width="400" alt="Cashier Cart">
+<img src="assets/screenshots/cashier/cashier%20pos.png" width="800" alt="Cashier POS"><br><br>
+<img src="assets/screenshots/cashier/cashier%20cart.png" width="800" alt="Cashier Cart">
 
 ### Customer Display & Receipt
-<img src="assets/screenshots/cashier/customer%20screen%20cart.png" width="400" alt="Customer Display">
-<img src="assets/screenshots/cashier/e-receipt%20website%20mobile.png" width="200" alt="E-Receipt Mobile">
+<table>
+  <tr>
+    <td align="center" valign="top">
+      <b>Customer Display</b><br>
+      <img src="assets/screenshots/cashier/customer%20screen%20cart.png" width="500" alt="Customer Display">
+    </td>
+    <td align="center" valign="top">
+      <b>Digital QR Receipt</b><br>
+      <img src="assets/screenshots/cashier/e-receipt%20website%20mobile.png" width="250" alt="E-Receipt Mobile">
+    </td>
+  </tr>
+</table>
 
 </details>
 
