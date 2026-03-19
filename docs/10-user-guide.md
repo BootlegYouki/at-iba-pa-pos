@@ -231,14 +231,18 @@ Navigate to **Reports** from the sidebar.
 
 ### AI Agent
 
-Click the **AI icon** in the sidebar to open the AI analytics panel:
+Click the **AI icon** in the sidebar to open the AI Agent:
 
-1. Type a question (e.g., "Which products are selling the fastest?")
-2. Or use a **preset query** button
-3. The AI analyzes your data and returns insights
-4. All suggestions are advisory — you decide what to act on
+1. **Select a provider and model** — configure Groq, Mistral, or Local Ollama in Settings → AI
+2. **Type a question** — e.g., "What are my top sellers this month?" or "Which items are running low?"
+3. Optionally **attach files** (up to 5 files, 300 KB each) by clicking the paperclip or pasting from clipboard
+4. Press **Enter** to send; **Shift+Enter** for a new line
+5. The AI streams its response in real time
+6. Click the **fullscreen icon** to expand the sidebar to fill the screen
+7. Access **conversation history** via the clock icon — all chats are saved locally in the database
+8. **Regenerate** the last response if needed via the regenerate button
 
-> AI features require an internet connection.
+> AI features require internet access for Groq and Mistral providers. Local Ollama works fully offline.
 
 ### System Settings
 

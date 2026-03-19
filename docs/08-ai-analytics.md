@@ -1,8 +1,8 @@
-# AI-Powered Analytics
+# AI-Powered Analytics (AI Agent)
 
 ## Overview
 
-The Admin dashboard integrates **Groq Cloud** — an ultra-fast LLM inference engine — to provide AI-powered analytics for the store owner. The AI acts as an **advisory assistant** that analyzes sales data, identifies trends, and provides actionable insights.
+The Admin dashboard includes a full-featured **AI Agent Sidebar** — a built-in chat assistant that analyzes store data, answers questions, and provides actionable recommendations for the store owner. The agent supports multiple AI providers and persists conversation history locally in the SQLite database.
 
 > **Important:** The AI operates in a strictly **advisory and analytical** capacity. It never makes automated decisions to alter prices, apply discounts, or place orders without explicit human approval.
 
@@ -15,33 +15,140 @@ flowchart LR
     subgraph AdminApp["Admin App"]
         UI["Admin Dashboard"]
         Sidebar["AI Agent Sidebar"]
+        DB["SQLite\n(Conversation History)"]
     end
 
-    subgraph Supabase["Supabase"]
-        EdgeFn["Edge Function<br/>(holds API key)"]
-    end
-
-    subgraph Groq["Groq Cloud"]
-        LLM["LLM Inference<br/>(fast response)"]
+    subgraph Providers["AI Provider (Configurable)"]
+        Groq["Groq Cloud\n(Default)"]
+        Mistral["Mistral AI"]
+        Local["Local Ollama\n(localhost:11434)"]
     end
 
     UI --> Sidebar
-    Sidebar -->|"Authenticated request<br/>(user session token)"| EdgeFn
-    EdgeFn -->|"Forward prompt<br/>(API key in env var)"| LLM
-    LLM -->|"Analysis response"| EdgeFn
-    EdgeFn -->|"Return result"| Sidebar
+    Sidebar <--> DB
+    Sidebar --> Groq
+    Sidebar --> Mistral
+    Sidebar --> Local
 ```
 
-### Security Model
+### Provider Options
 
-The Groq API key is **never stored in the desktop application**. Instead:
+| Provider | Description | Key Required |
+|----------|-------------|-------------|
+| **Groq** | Default — ultra-fast LLM inference via Groq Cloud | Groq API Key |
+| **Mistral AI** | European LLM provider — Mistral models | Mistral API Key |
+| **Local (Ollama)** | Runs models locally on the same machine | None (Ollama must be running on `localhost:11434`) |
 
-1. The Admin app sends the prompt to a **Supabase Edge Function**
-2. The Edge Function authenticates the request using the user's Supabase session token
-3. The Edge Function holds the Groq API key as a **server-side environment variable**
-4. The Edge Function forwards the prompt to Groq and returns the result
+API keys are stored encrypted (AES-256-GCM) in the local SQLite database — never in plaintext.
 
-This prevents API key extraction from the desktop application binary.
+---
+
+## Key Features
+
+### Multi-Provider Support
+
+The Admin can switch AI providers in Settings. The sidebar dynamically fetches the available models for the selected provider:
+
+- **Groq** — fetches from `api.groq.com/openai/v1/models`, filters out non-chat models (whisper, TTS, guard, etc.)
+- **Mistral** — fetches from `api.mistral.ai/v1/models`, curates a list of recommended models (`mistral-large`, `mistral-small`, `pixtral-large`, `codestral`, etc.)
+- **Local / Ollama** — fetches from `localhost:11434/v1/models`, lists all locally installed Ollama models
+
+The default model is `llama-3.3-70b-versatile` (Groq).
+
+---
+
+### Persistent Conversation History
+
+Conversations are stored permanently in the local SQLite database (`ai_conversations` and `ai_messages` tables), so the store owner can:
+
+- Pick up any previous conversation from the **Conversation History Panel**
+- Load past sessions and continue where they left off
+- Delete individual conversations they no longer need
+- All data stays entirely local — no conversations are uploaded to any server
+
+**Auto-generated conversation titles:** After the third assistant reply in a conversation, the AI automatically generates a short title (max 6 words) to label the conversation in the history list.
+
+---
+
+### File Attachments
+
+Users can attach files to any message:
+
+| Constraint | Limit |
+|------------|-------|
+| Max files per message | 5 |
+| Max file size per file | 300 KB |
+| Max total text per message | 24,000 characters |
+| Max text per file | 12,000 characters |
+
+**Supported attachment methods:**
+- Click the paperclip button to open the file picker
+- Paste files directly from clipboard
+
+Text files (`.txt`, `.csv`, `.json`, `.md`, etc.) are read and injected into the model prompt as structured `[ATTACHMENT_FILE]` blocks. Binary files (images, PDFs, etc.) are referenced by name with content omitted — the AI knows a file was attached but cannot read binary content.
+
+---
+
+### Fullscreen Mode
+
+The AI sidebar can be toggled between:
+- **Floating panel** — fixed 388px width alongside the main content
+- **Fullscreen** — expands to fill the remaining width of the dashboard
+
+The fullscreen toggle is in the sidebar header. The sidebar auto-exits fullscreen when closed.
+
+---
+
+### Auto-Retry on Error
+
+If the AI returns an empty response due to a transient error, the sidebar automatically retries the request once after a 900ms delay. This handles brief rate limits or network blips without requiring manual user intervention. The retry count is displayed in the UI.
+
+---
+
+### Response Regeneration
+
+Users can regenerate the last AI response by clicking the **Regenerate** button. This:
+1. Removes the last assistant turn from the DB
+2. Resends the same request to the model
+3. Streams a fresh response
+
+---
+
+## Sidebar UI Components
+
+```mermaid
+graph TB
+    Sidebar["AI Agent Sidebar"]
+    Header["SidebarHeader\n(title, new chat, history, fullscreen, close)"]
+    History["ConversationHistoryPanel\n(list of past conversations)"]
+    Messages["ChatMessagesPane\n(message bubbles + loading states)"]
+    Composer["ChatComposer\n(input, file picker, model selector, send)"]
+
+    Sidebar --> Header
+    Sidebar --> History
+    Sidebar --> Messages
+    Sidebar --> Composer
+```
+
+| Component | Purpose |
+|-----------|---------|
+| **SidebarHeader** | Toolbar: new conversation, history toggle, fullscreen toggle, close button |
+| **ConversationHistoryPanel** | Lists all saved conversations; click to load, trash icon to delete |
+| **ChatMessagesPane** | Renders all messages with markdown formatting; shows loading/thinking indicators |
+| **ChatComposer** | Multi-line textarea (max 6 visible lines), attachment row, model selector dropdown, send/stop button |
+
+---
+
+## Interaction Flow
+
+1. Admin clicks the AI icon in the dashboard header
+2. Sidebar slides in from the right (388px wide)
+3. Admin optionally selects a model from the dropdown in the composer
+4. Admin types a question, optionally attaches files
+5. Press `Enter` (or click Send) to submit; `Shift+Enter` for newline
+6. Response streams in real time with phase indicators (thinking → generating)
+7. On streaming completion, the message is saved to the local SQLite DB
+8. Admin can continue the conversation, regenerate, or start a new chat
 
 ---
 
@@ -49,7 +156,7 @@ This prevents API key extraction from the desktop application binary.
 
 ```mermaid
 mindmap
-    root((AI Analytics))
+    root((AI Agent))
         Sales Analysis
             Daily/weekly trends
             Revenue patterns
@@ -66,25 +173,14 @@ mindmap
             Transaction speed
             Average sale value
             Shift comparisons
+        Data Exploration
+            Custom queries about transactions
+            File analysis (attach CSV exports)
 ```
-
-### Specific Capabilities
-
-| Capability | Description |
-|------------|-------------|
-| **Sales Trend Analysis** | Identifies upward/downward trends in daily, weekly, and monthly revenue |
-| **Peak Hour Detection** | Determines busiest hours for staffing optimization |
-| **Stock Predictions** | Estimates when products will run out based on sales velocity |
-| **Reorder Suggestions** | Recommends reorder quantities based on historical demand |
-| **Product Recommendations** | Identifies products that are frequently purchased together |
-| **Slow Mover Detection** | Flags products with declining sales or excess stock |
-| **Cashier Insights** | Compares cashier performance metrics (speed, accuracy, revenue) |
 
 ---
 
 ## AI Constraints
-
-The AI follows strict operational boundaries:
 
 | Constraint | Detail |
 |------------|--------|
@@ -97,47 +193,25 @@ The AI follows strict operational boundaries:
 
 ---
 
-## User Interface
-
-The AI assistant appears as a **sidebar panel** in the Admin dashboard:
-
-```mermaid
-graph LR
-    subgraph AdminLayout["Admin App Layout"]
-        direction LR
-        Sidebar["Navigation<br/>Sidebar"]
-        Main["Main Content<br/>(Dashboard/Reports)"]
-        AI["AI Agent<br/>Sidebar Panel"]
-    end
-
-    Sidebar ~~~ Main
-    Main ~~~ AI
-```
-
-### Interaction Flow
-
-1. Admin clicks the AI icon in the dashboard
-2. AI sidebar slides in from the right
-3. Admin types a question or selects a preset query
-4. AI processes the request using local transaction/inventory data
-5. Response appears in the sidebar with formatted insights
-
-### Preset Queries
-
-The sidebar offers quick-action buttons for common analyses:
-- "How are sales trending this week?"
-- "Which products are running low?"
-- "What are my top sellers this month?"
-- "When are my peak hours?"
-- "Which cashier had the highest sales today?"
-
----
-
-## Data Privacy
+## Security Model
 
 | Concern | Mitigation |
 |---------|------------|
-| **Sensitive data sent to LLM** | Only aggregated/anonymized data is sent — no customer personal information |
-| **API key exposure** | Key stored server-side in Supabase Edge Function, never in the client app |
-| **Data retention by Groq** | Subject to Groq's data processing terms — no PII is included in prompts |
-| **Network dependency** | AI features gracefully degrade to "unavailable" when offline |
+| **API key storage** | Keys are encrypted with AES-256-GCM via Tauri's `encrypt_value` command before being written to SQLite |
+| **Conversation data** | All conversations stored locally in SQLite — no cloud upload |
+| **Local Ollama** | No API key required; model runs entirely on-device |
+| **Network dependency** | AI features degrade gracefully to "not configured" when offline or provider is unreachable |
+
+---
+
+## Settings & Configuration
+
+AI provider settings are found in **Admin Settings → AI**:
+
+| Setting | Description |
+|---------|-------------|
+| **Provider** | Groq / Mistral / Local |
+| **API Key** | Groq or Mistral API key (encrypted at rest) |
+| **Model** | Selected from dynamically fetched model list |
+
+Configuration is persisted in the `settings` table in the local SQLite database and survives app restarts.

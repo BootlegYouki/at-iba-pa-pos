@@ -4,7 +4,46 @@ All notable changes to the AT-IBA-PA MINIMART POS system will be documented in t
 
 ---
 
+## [1.3.0] — 2026-03-19
+
+### ✨ Added
+
+**AI Agent — Full Overhaul**
+- Multi-provider support: choose between **Groq**, **Mistral AI**, or **Local Ollama**
+  - Groq (default): `llama-3.3-70b-versatile` and all active Groq chat models
+  - Mistral: curated model list (`mistral-large`, `mistral-small`, `pixtral-large`, `codestral`, etc.)
+  - Local: Ollama running at `localhost:11434` — no API key, fully offline
+- **Persistent conversation history** stored in SQLite (`ai_conversations`, `ai_messages` tables)
+  - ConversationHistoryPanel — browse, load, and delete past chats
+  - Auto-generated conversation titles after the 3rd assistant reply (AI-generated, max 6 words)
+- **File attachments** — attach up to 5 files (300 KB each) per message; text files are injected into the prompt, binary files are referenced by name
+  - Attach via file picker button or paste from clipboard
+- **Fullscreen mode** — toggle sidebar to expand and fill the full dashboard width
+- **Auto-retry** — automatically retries once on empty-response errors (900ms delay)
+- **Response regeneration** — regenerate the last assistant reply on demand
+- AI config (provider, API keys, model) stored encrypted in the `settings` table
+
+**Export Reports — New Advanced Configuration UI**
+- New dedicated export screen (`/reports/export`) replacing simple CSV/XLSX buttons
+- **Workbook Settings**: global date range picker + layout choice (Separate Sheets / Combined Sheet)
+- **Section management**: enable/disable and drag-to-reorder 5 report sections (Sales Summary, Transactions, Top Products, Inventory, Hourly Sales)
+- **Per-section config**: date range override, sort metric/order, cashier filter, category filter, text search, stock filter, visible column selection
+- Settings auto-saved to `localStorage` and restored on next visit
+- Responsive layout (stacked below 1100px, wide above)
+
+**Customer Window Toggle (Cashier Settings)**
+- Added **Display** section in Cashier Settings dialog with a toggle to enable or disable the Customer Window (second monitor display)
+- Preference persisted to `localStorage`; opens/closes the Tauri customer display window accordingly
+
+### 📝 Documentation
+- Rewrote [AI Analytics](docs/08-ai-analytics.md): multi-provider architecture, persistent conversations, file attachments, fullscreen mode, auto-retry, security model
+- Added [Export Reports](docs/12-export-reports.md): full documentation of the new export configuration screen
+- Updated [User Guide](docs/10-user-guide.md): updated AI Agent section to cover new provider setup, attachments, fullscreen, and conversation history
+
+---
+
 ## [1.2.0] — 2025-07-17
+
 
 ### ✨ Added
 

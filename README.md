@@ -110,11 +110,12 @@ Both apps are built as standalone Windows `.exe` installers.
 | 5 | [Cloud Sync](docs/05-cloud-sync.md) | Supabase sync algorithm, conflict resolution |
 | 6 | [Barcode Scanner](docs/06-barcode-scanner.md) | Global keystroke hook, timing heuristics |
 | 7 | [Customer Display & Receipts](docs/07-customer-display.md) | Multi-window, QR receipts, receipt website |
-| 8 | [AI Analytics](docs/08-ai-analytics.md) | Groq integration, use cases, constraints |
+| 8 | [AI Analytics](docs/08-ai-analytics.md) | Multi-provider AI agent, conversation history, attachments |
 | 9 | [Security](docs/09-security.md) | Authentication, encryption, RLS |
 | 10 | [User Guide](docs/10-user-guide.md) | Installation, cashier guide, admin guide |
 | 11 | [Performance](docs/11-performance.md) | Database tuning, indexes, batch ops, pagination |
 | 12 | [Database Schema](docs/database_schema.md) | Full SQLite structure, tables, and fields |
+| 13 | [Export Reports](docs/12-export-reports.md) | Workbook export config, section ordering, filters |
 
 ---
 
