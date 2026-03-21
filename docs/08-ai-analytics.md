@@ -176,6 +176,9 @@ mindmap
         Data Exploration
             Custom queries about transactions
             File analysis (attach CSV exports)
+        Inventory Management
+            Add new products to catalog
+            Bulk import from lists of barcodes
 ```
 
 ---
