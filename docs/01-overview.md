@@ -2,9 +2,14 @@
 
 ## Background
 
-**AT-IBA-PA MINIMART** is a growing retail store that previously relied on manual sales recording and inventory tracking. This led to frequent errors, inaccurate stock monitoring, and slow transaction processing.
+AT-IBA-PA MINIMART needed a retail system that could keep checkout moving even when internet access was unreliable. The result is an offline-first POS and inventory platform built for day-to-day store operations on Windows desktops.
 
-The **Point of Sale & Inventory Management System** was developed to solve these problems by automating sales transactions with barcode scanning, updating inventory in real time, and generating sales reports — all while running entirely offline on low-cost hardware.
+The system focuses on four practical goals:
+
+1. Speed up checkout with barcode scanning and keyboard-driven cashier flows.
+2. Keep stock levels current as sales happen.
+3. Give the store owner better reporting, exports, and operational visibility.
+4. Support multi-terminal use in one store through LAN sync, with optional cloud backup.
 
 ---
 
@@ -12,92 +17,74 @@ The **Point of Sale & Inventory Management System** was developed to solve these
 
 ```mermaid
 graph LR
-    subgraph Users
-        Cashier["🧑‍💼 Cashier"]
-        Admin["👤 Store Admin / Owner"]
-    end
+    Cashier["Cashier"]
+    Admin["Store Admin / Owner"]
 
-    subgraph Cashier_Tasks["Cashier Responsibilities"]
-        C1["Scan items & process sales"]
-        C2["Accept payments"]
-        C3["Show customer display & receipts"]
-    end
-
-    subgraph Admin_Tasks["Admin Responsibilities"]
-        A1["Manage products & inventory"]
-        A2["View reports & analytics"]
-        A3["Monitor transactions"]
-        A4["Configure system settings"]
-    end
-
-    Cashier --> C1
-    Cashier --> C2
-    Cashier --> C3
-    Admin --> A1
-    Admin --> A2
-    Admin --> A3
-    Admin --> A4
+    Cashier --> CashierTasks["Checkout, scan, take payment, show customer display"]
+    Admin --> AdminTasks["Manage catalog, users, settings, reports, exports, AI assistant"]
 ```
 
-| User Type | Responsibilities | System Usage |
-|-----------|-----------------|--------------|
-| **Cashier** | Handles daily sales transactions | Scan items, process sales, accept payments, display receipts |
-| **Store Admin / Owner** | Manages store operations | Manage products, monitor inventory, view reports, track transactions, AI analytics |
+| User Type | Primary Responsibilities |
+|-----------|--------------------------|
+| **Cashier** | Process sales, scan items, accept payment, and assist customers at checkout |
+| **Store Admin / Owner** | Manage inventory, users, settings, reports, exports, LAN/cloud configuration, and AI-assisted analysis |
 
 ---
 
-## Features
+## Core Capabilities
 
-### Core Features
-
-| Feature | Description |
-|---------|-------------|
-| **Barcode Scanning** | Scan product barcodes to instantly display product details and add items to the transaction |
-| **Sales Transaction Processing** | Add/remove items, calculate totals, accept Cash, Card, GCash, or Maya payments, generate receipts |
-| **Inventory Management** | Add, edit, delete, and search products — track stock levels per item |
-| **Automatic Inventory Update** | Stock is automatically deducted when a sale is completed, in real time |
-| **Low Stock Alerts** | Notifications when inventory falls below the configured threshold |
-| **Reporting System** | Generate daily, weekly, and monthly sales reports with charts and export options |
-
-### Advanced Features
-
-| Feature | Description |
-|---------|-------------|
-| **Customer Display** | A second window on a customer-facing screen showing live cart, payment status, and QR receipts |
-| **QR Digital Receipts** | Customers scan a QR code to view and download their receipt on their phone |
-| **AI-Powered Analytics** | Groq-powered sales analysis, predictions, and product insights for the Admin |
-| **Local Network Sync** | Admin and Cashier apps sync over LAN when internet is unavailable |
-| **Cloud Sync** | Automatic background sync to Supabase for data backup and multi-device access |
-| **Keyboard Shortcuts** | F-key shortcuts for cashiers to speed up transactions without a mouse |
+| Capability | What it does |
+|------------|---------------|
+| **Barcode scanning** | Detects scanner input globally and adds products quickly without needing mouse-heavy workflows |
+| **Sales processing** | Supports Cash, Card, GCash, and Maya, including reference numbers for non-cash payments |
+| **Inventory management** | Create, edit, archive, search, and categorize products with per-item low-stock thresholds |
+| **Automatic stock updates** | Deducts stock locally when a sale is completed and syncs the updated inventory state later |
+| **Transaction history** | Stores sales locally, shows line items, and supports reporting across date ranges |
+| **Export reports** | Builds configurable XLSX workbooks from sales and inventory data |
 
 ---
 
-## System Scope & Delimitations
+## Advanced Features
 
-### Objectives
+| Feature | Description |
+|---------|-------------|
+| **Customer display** | Opens a dedicated customer-facing window with live cart state, payment status, and receipt QR code |
+| **QR digital receipts** | Encodes completed receipts into a QR URL that customers can open on their phones |
+| **LAN sync** | Admin and Cashier terminals synchronize on the local network using UDP discovery plus WebSocket messaging |
+| **Cloud sync** | Optional runtime Supabase sync for backup and cross-device visibility |
+| **Admin AI assistant** | Sidebar assistant with Groq, Mistral, or local Ollama support, saved conversations, and attachment-aware prompts |
+| **Offline-first fallback** | Transactions continue locally when cloud or LAN connectivity is unavailable |
 
-1. Reduce manual input errors during sales transactions through barcode scanning
-2. Provide a fast, intuitive cashier interface that captures and generates transaction details
-3. Automatically adjust stock levels whenever a sale is recorded
-4. Ensure secure, organized storage for product, transaction, and inventory data
-5. Generate sales reports and maintain transaction history for business analysis
+---
 
-### Scope
+## Scope
 
-- Store, view, and manage inventory items (add, edit, delete, search)
-- Automatically update stock levels on sale or restock
-- Monitor product availability and alert on low stock
-- Securely store product, transaction, and inventory data
-- Track transaction history and generate detailed reports
-- Support barcode scanning for fast, accurate checkout
+The system is designed for a single store location with one or more cashier terminals.
 
-### Delimitations
+Included in scope:
 
-| Constraint | Detail |
-|------------|--------|
-| **Payment methods** | Cash, Card, GCash, and Maya — card and e-wallet payments are recorded as the selected method with an optional reference number |
-| **Scanning technology** | USB barcode scanners only — no RFID or QR code scanning for products |
-| **Loyalty programs** | Not included — no customer loyalty or rewards system |
-| **Third-party integrations** | No integration with external accounting software or ERP platforms |
+- Local product, user, settings, transaction, and inventory-log storage
+- Admin and Cashier desktop apps from one shared codebase
+- LAN-first cashier-to-admin transaction flow
+- Optional Supabase synchronization
+- Admin-only AI assistant and reporting/export features
+
+Out of scope:
+
+- Loyalty or rewards programs
+- Supplier ordering workflows
+- External accounting or ERP integration
+- Online ordering or e-commerce storefronts
+- Native mobile apps
+
+---
+
+## Practical Constraints
+
+| Constraint | Current behavior |
+|------------|------------------|
 | **Platform** | Windows desktop only |
-| **Scale** | Designed for a single store location |
+| **Scanning** | USB HID barcode scanners only |
+| **Payments** | Payment methods are recorded, but no direct payment gateway is integrated |
+| **Store model** | Built for one store environment, not multi-branch orchestration |
+| **Cloud requirement** | Optional; the system still runs locally without Supabase |

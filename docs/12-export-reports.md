@@ -2,118 +2,169 @@
 
 ## Overview
 
-The **Export Reports** feature allows the Admin to generate a customized Excel (`.xlsx`) workbook from store data. It is accessed from the Reports page via the **Export** button, which navigates to a dedicated configuration screen (`/reports/export`).
+The Admin app includes a dedicated export workflow for building Excel workbooks from sales and inventory data.
 
-All export settings (date ranges, section toggles, sort options, column visibility, etc.) are automatically saved to `localStorage` and restored on next visit, so the Admin's preferences persist across sessions.
+Access path:
+
+- Open **Reports**
+- Click **Export**
+- Configure the workbook on `/reports/export`
+
+Export configuration is saved in `localStorage`, so the screen restores the last-used layout and section settings.
 
 ---
 
-## Export Configuration Screen
+## Workbook Options
 
-The export screen is divided into four main cards:
+The export screen currently supports two workbook layouts:
+
+| Layout | Behavior |
+|--------|----------|
+| **Separate Sheets** | Each enabled section becomes its own worksheet |
+| **Combined Sheet** | All enabled sections are rendered into one worksheet |
+
+Global settings:
+
+- Global date range
+- Workbook layout
+- Auto-generated file name based on the selected date range
+
+Default file naming pattern:
+
+- `reports-YYYY-MM-DD-to-YYYY-MM-DD.xlsx`
+
+---
+
+## Available Sections
+
+The current export engine supports ten section types:
+
+| Section ID | Display name |
+|------------|--------------|
+| `sales_summary` | Sales Summary |
+| `transactions` | Transactions |
+| `product_sales` | Product Sales |
+| `top_products` | Top Products |
+| `bottom_products` | Bottom Products |
+| `cashier_totals` | Cashier Totals |
+| `payment_methods` | Payment Methods |
+| `category_sales` | Category Sales |
+| `inventory_snapshot` | Inventory Snapshot |
+| `low_stock` | Low Stock |
+
+Some are enabled by default, while others start disabled but can be turned on from the export screen.
+
+---
+
+## Configuration Controls
+
+### 1. Section ordering
+
+Enabled and disabled sections appear in a draggable list.
+
+You can:
+
+- Reorder sections
+- Enable or disable sections
+- Control final workbook order
+
+### 2. Date ranges
+
+Most sales-oriented sections support:
+
+- Global date range
+- Per-section override date range
+
+Inventory-oriented sections do not use a date override because they export current state snapshots.
+
+### 3. Sorting
+
+Depending on the section, you can sort by:
+
+- Revenue
+- Units
+- Ascending or descending order
+
+### 4. Filters
+
+Current filter support includes:
+
+| Filter | Used by |
+|--------|---------|
+| Cashier filter | Cashier Totals |
+| Category filter | Inventory Snapshot, Low Stock |
+| Search filter | Inventory Snapshot |
+| Stock filter (`all`, `low`, `ok`) | Inventory Snapshot |
+
+### 5. Visible columns
+
+Table-like sections let the user choose visible columns.
+
+Examples:
+
+- Transactions can include transaction ID, timestamp, cashier, item count, payment method, amount paid, total, and reference number.
+- Inventory Snapshot can include product details, stock, threshold, value, and stock status.
+
+Ranking sections such as Top Products and Bottom Products are more presentation-driven and do not expose the same column picker.
+
+---
+
+## Export Flow
 
 ```mermaid
-graph LR
-    A["Workbook Settings\n(global date range + layout)"]
-    B["Preview\n(quick summary)"]
-    C["Config Nav + Section Options\n(per-section settings)"]
-    D["Final Order\n(drag to reorder, enable/disable sections)"]
-    E["Export Action Bar"]
-
-    A --> C
-    B --> C
-    C --> D
-    D --> E
+flowchart TD
+    Config["User configures workbook"] --> Validate["Validate at least one section"]
+    Validate --> Build["Build workbook with exceljs"]
+    Build --> Save["Save file through Tauri command"]
+    Save --> Done["Workbook saved"]
 ```
 
----
+What happens when the user exports:
 
-## Workbook Settings
-
-| Setting | Options | Description |
-|---------|---------|-------------|
-| **Global Date Range** | Custom date picker | Shared date range applied to all sections by default |
-| **Workbook Layout** | Separate Sheets / Combined Sheet | Whether each report section gets its own Excel sheet or all appear on one sheet |
-
-The **Current Range** is shown below the date picker — this reflects the date range from the Reports page that launched the export. A **Use Current Range** button resets the global range back to this value.
+1. The app validates the configuration.
+2. The export engine resolves enabled sections in final order.
+3. Data is pulled from the local DAL.
+4. `exceljs` builds the workbook.
+5. Tauri writes the file to disk.
 
 ---
 
-## Report Sections
+## File Output Behavior
 
-Each section can be independently enabled, reordered, and configured. The full list of sections:
+On desktop builds, export uses the Rust `save_export_file` command.
 
-| # | Section | Description |
-|---|---------|-------------|
-| 1 | **Sales Summary** | Total revenue, transactions, and averages over the selected range |
-| 2 | **Transactions** | Individual transaction records |
-| 3 | **Top Products** | Products ranked by revenue or units sold |
-| 4 | **Inventory** | Full product catalog with current stock levels |
-| 5 | **Hourly Sales** | Sales volume broken down by hour of day |
+Current output behavior:
 
----
+- Save to the system Downloads directory when available
+- Fall back to Documents, then Desktop if needed
+- Auto-append a numeric suffix if a file name already exists
 
-## Section Configuration
-
-When a section is enabled, it can be configured via the **Config Nav** panel. Options vary by section:
-
-### Date Range Override
-
-Sections that support it can override the global date range with a section-specific date range. Toggle **"Use Global"** off to reveal the section date picker.
-
-### Sort Options
-
-| Option | Values |
-|--------|--------|
-| **Sort Metric** | Revenue / Units |
-| **Sort Order** | Descending / Ascending |
-
-### Filters
-
-| Filter | Description |
-|--------|-------------|
-| **Cashier** | Filter records to a specific cashier (populated from DB) |
-| **Category** | Filter products by category |
-| **Search** | Text search on product name, barcode, or SKU |
-| **Stock Filter** | All Products / Low Stock Only / OK Stock Only |
-
-### Visible Columns
-
-Each section defines a list of column options that can be individually shown or hidden. Active columns are highlighted. At least one column must remain selected.
+That means export does not depend on a manual save-as dialog in the current implementation.
 
 ---
 
-## Final Order (Drag & Drop)
+## Persistence
 
-The **Final Order** card shows all available sections in a draggable list. Use the drag handle to rearrange sections — the order here determines the sheet/column order in the exported workbook.
+The export UI stores the last configuration in `localStorage` under:
 
-Each item shows:
-- Position badge (1, 2, 3…)
-- Drag handle
-- Enable/disable toggle
-- Section name
+- `reports_export_config_v1`
 
-Disabled sections appear in the list but are excluded from the export.
+This includes:
 
----
-
-## Export Action
-
-The **Export Excel** button kicks off the export process:
-
-1. Config is validated (at least one section must be enabled)
-2. Status message shows `"Preparing workbook…"` while generating
-3. The workbook is built using `@/lib/reportExport` and saved automatically via Tauri's dialog
-4. On success, the file name is shown in the status bar
-5. On failure, an error message is displayed
+- Enabled sections
+- Section order
+- Filters
+- Chosen columns
+- Layout
+- Date ranges
 
 ---
 
-## Technical Notes
+## Practical Uses
 
-- Export configuration type: `ExportJobConfig` defined in `src/lib/reportExport.ts`
-- Config is persisted to `localStorage` under the key `REPORT_EXPORT_STORAGE_KEY`
-- Config is restored via `restoreExportConfig()` on page mount
-- The layout adapts responsively: stacked layout below 1100px container width, wide layout above
-- Section definitions (title, description, column options, allowed filters) are centralized in `getExportSectionDefinition()` via `src/lib/reportExport.ts`
-- Draggable list component: `DraggableList` under `src/components/components/lists/draggable-list`
+Typical workbook combinations:
+
+- Sales Summary + Transactions for daily reconciliation
+- Product Sales + Top Products + Category Sales for management review
+- Inventory Snapshot + Low Stock for replenishment planning
+- Cashier Totals + Payment Methods for shift analysis

@@ -1,330 +1,255 @@
-# Cloud Sync Algorithm
+# Cloud Sync
 
 ## Overview
 
-When internet connectivity is available, the system syncs data with **Supabase** — a cloud Postgres database that serves as the "Global Truth." This enables data backup, cross-device visibility, and cloud-powered features like AI analytics.
+Cloud sync is optional. When Supabase credentials are configured, a Rust background loop pushes and pulls operational data between the local SQLite database and Supabase Postgres.
 
-Cloud sync is a **background process** that runs alongside normal POS operations. It never blocks the UI or interrupts transactions.
+If no credentials are configured, the apps continue in local-only mode.
 
 ---
 
 ## Runtime Cloud Configuration
 
-Supabase credentials are **not compiled into the binary**. Instead, each store owner configures their own Supabase project at runtime through the Settings UI.
+Supabase credentials are not compiled into the app. They are entered at runtime from the Admin Settings UI.
 
 ```mermaid
 flowchart LR
-    Settings["Settings UI"] --> Store["Tauri Store<br/>(.settings.dat)"]
-    Store --> Rust["Rust Backend<br/>(DbState)"]
-    Store --> Frontend["Frontend<br/>(supabase.ts)"]
-    Rust --> SyncLoop["Sync Loop<br/>(starts/stops dynamically)"]
-    Frontend --> Realtime["Realtime Subscriptions"]
+    Settings["Admin Settings UI"] --> Store[".settings.dat"]
+    Store --> Rust["Rust DbState"]
+    Store --> UI["Frontend cloud client"]
+    Rust --> Loop["Background sync loop"]
 ```
 
-### Credential Storage
+Committed cloud settings currently use:
 
-| Key | Storage | Description |
-|-----|---------|-------------|
-| `supabaseUrl` | `.settings.dat` (JSON) | The Supabase project URL (e.g., `https://xxxxx.supabase.co`) |
-| `supabaseAnonKey` | `.settings.dat` (JSON) | The Supabase anon/public key |
+| Store key | Purpose |
+|-----------|---------|
+| `supabaseUrl` | Supabase project URL |
+| `supabaseAnonKey` | Encrypted committed anon key |
 
-Credentials are read from the Tauri Store on app startup. If none are configured, the app starts in **offline mode** and cloud sync is skipped entirely.
+Admin Settings behavior:
 
-### Runtime Commands
-
-| Command | Description |
-|---------|-------------|
-| `update_cloud_config(url, key)` | Saves new credentials, cancels the existing sync loop, starts a new one, and **broadcasts `CloudCredentials` to all connected cashiers via LAN** |
-| `clear_cloud_config()` | Removes credentials, stops the sync loop, and **broadcasts `CloudCredentialsCleared` to all connected cashiers via LAN** |
-| `db_sync(entity?)` | Triggers a manual sync cycle (reads credentials from `DbState`) |
-
-### Auto-Provisioning
-
-When a user connects to a fresh Supabase project, the app detects missing tables (HTTP `42P01` error) and shows a **copyable SQL migration** that the user pastes into the Supabase SQL Editor. Once the tables exist, sync starts automatically.
+- Validates URL and anon key format
+- Can test connectivity against the `products` table
+- Detects missing tables and shows setup SQL
+- Saves committed credentials
+- Calls `update_cloud_config` so Rust updates the running sync engine
 
 ---
 
-## Cloud Credential Propagation via LAN
+## Fresh Project Setup
 
-Cashier terminals do not need to be individually configured with Supabase credentials. When the Admin is connected to cashiers via LAN, cloud credentials are **automatically propagated**.
+If the target Supabase project does not have the required tables yet, the Admin UI enters a `tables_missing` state and offers:
 
-### How It Works
+- A copyable SQL migration
+- A shortcut to the Supabase SQL editor
+
+The generated SQL currently creates:
+
+- `products`
+- `transactions`
+- `transaction_items`
+- `users`
+- `settings`
+- `inventory_logs`
+
+It also enables permissive RLS policies for the anon role so the app can operate with the configured anon key.
+
+---
+
+## Cashier Credential Propagation
+
+When the Admin is already connected to cashiers over LAN, cloud credentials can be shared downstream.
 
 ```mermaid
 flowchart TD
-    AdminConfig["Admin configures Supabase\nin Settings UI"] --> BroadcastCreds["Broadcast CloudCredentials\n{url, key} to all cashiers"]
-    BroadcastCreds --> CashierReceive["Cashier receives credentials"]
-    CashierReceive --> Encrypt["Encrypt with AES-256-GCM\n(derived from machine-specific key)"]
-    Encrypt --> Store["Store encrypted in Tauri Store\n(.settings.dat)"]
-    Store --> UpdateState["Update DbState\n(cloud_url, cloud_key)"]
-    UpdateState --> EmitEvent["Emit 'cloud-credentials-received'\nto frontend"]
-    EmitEvent --> StartSync["Frontend picks up creds\nand starts cloud sync"]
+    Admin["Admin saves cloud config"] --> Broadcast["Send CloudCredentials over LAN"]
+    Broadcast --> Cashier["Cashier stores pending auto credentials"]
+    Cashier --> Ready["Cloud Sync shows Ready"]
+    Ready --> Connect["Cashier connects pending credentials"]
+    Connect --> Active["Committed cloud config becomes active"]
 ```
 
-### Propagation Triggers
+Pending cashier keys:
 
-| Trigger | Message Sent | Behavior |
-|---------|-------------|----------|
-| Cashier sends `InitialSyncRequest` | `CloudCredentials` | Admin checks if cloud config exists and includes it in the initial sync response |
-| Admin updates cloud config | `CloudCredentials` | Broadcast to all currently-connected cashiers immediately |
-| Admin clears cloud config | `CloudCredentialsCleared` | Broadcast to all cashiers; each clears stored creds, aborts active cloud sync, and emits `'cloud-credentials-cleared'` to frontend |
+| Store key | Meaning |
+|-----------|---------|
+| `autoSupabaseUrl` | Pending LAN-delivered cloud URL |
+| `autoSupabaseAnonKey` | Pending LAN-delivered anon key |
 
-### Credential Storage on Cashier
+Operational flow:
 
-| Field | Storage Key | Encryption |
-|-------|------------|------------|
-| Supabase URL | `cloud_url` in Tauri Store | AES-256-GCM |
-| Supabase Anon Key | `cloud_key` in Tauri Store | AES-256-GCM |
-
-Credentials are encrypted at rest using AES-256-GCM with a machine-derived key before being written to the Tauri Store. On app startup, if encrypted credentials exist, they are decrypted and loaded into `DbState` for use by the sync loop.
-
-> **Important:** Cashiers never expose the Supabase credentials in their Settings UI. The cloud configuration section shows only the connection status and is read-only — all configuration is managed centrally from the Admin.
-
----
-
-## Sync Direction by Data Type
-
-```mermaid
-flowchart LR
-    subgraph Cloud["☁️ Supabase (Postgres)"]
-        CloudProducts[("Products")]
-        CloudTransactions[("Transactions")]
-        CloudStock[("Stock Levels")]
-    end
-
-    subgraph Local["💻 Local (SQLite)"]
-        LocalProducts[("Products")]
-        LocalTransactions[("Transactions")]
-        LocalStock[("Stock Levels")]
-    end
-
-    CloudProducts -->|"⬇️ Downstream"| LocalProducts
-    LocalTransactions -->|"⬆️ Upstream"| CloudTransactions
-    CloudStock <-->|"↔️ Bidirectional"| LocalStock
-```
-
-| Data Type | Direction | Description |
-|-----------|-----------|-------------|
-| **Products & Prices** | Downstream (Cloud → Local) | Admin manages products in Supabase; terminals pull updates |
-| **Transactions & Sales** | Upstream (Local → Cloud) | Sales are created locally and pushed to the cloud |
-| **Stock Levels** | Bidirectional | Local deduction on sale + cloud trigger on sync |
-| **Users & Settings** | Downstream on first sync | Pulled during initial bootstrap |
+1. Admin broadcasts `CloudCredentials`.
+2. Cashier stores them as pending auto credentials.
+3. Cashier UI receives `cloud-credentials-received` and shows a Ready state.
+4. When cashier activates them, the app writes committed `supabaseUrl` plus encrypted `supabaseAnonKey`, updates Rust state, and reinitializes the frontend cloud client.
 
 ---
 
 ## Background Sync Loop
 
-```mermaid
-flowchart TD
-    Start["Sync Loop Start"]
-    
-    Start --> AcquireLock["Acquire sync lock<br/>(prevents concurrent syncs)"]
-    AcquireLock --> RunCycle["Run sync cycle"]
-    
-    RunCycle --> Push["PUSH: Find pending transactions<br/>→ Upsert to Supabase"]
-    Push --> Pull["PULL: Fetch updated products<br/>← From Supabase"]
-    Pull --> PullUsers["PULL: Fetch users & settings<br/>← From Supabase"]
-    
-    PullUsers --> Success{"Cycle<br/>succeeded?"}
-    
-    Success -->|Yes| ResetCounter["Reset failure counter<br/>sync_mode = 'online'"]
-    Success -->|No| IncrCounter["Increment failure counter<br/>sync_mode = 'local' or 'offline'"]
-    
-    ResetCounter --> Delay["Wait 5 seconds"]
-    IncrCounter --> BackoffDelay["Wait with backoff<br/>(5s × failures, max 30s)"]
-    
-    Delay --> AcquireLock
-    BackoffDelay --> AcquireLock
-```
-
-### Timing
-
-| State | Interval |
-|-------|----------|
-| **Online** | Every 5 seconds |
-| **Failing** | Exponential backoff: `min(5 × (failures + 1), 30)` seconds |
-| **Max backoff** | 30 seconds |
-
-### Logging Strategy
-
-- **First failure:** Logged at `warn` level
-- **Subsequent failures:** Logged at `debug` level to reduce noise
-- **Recovery:** Logged at `info` level with failure count
-
----
-
-## Sync Cycle Detail
-
-Each sync cycle consists of sequential push and pull phases. The Admin pushes products, users, settings, and transactions; the Cashier pushes only transactions. Both pull everything.
-
-### Push Phase (Upstream)
-
-All entities with `sync_status = 'pending'` are pushed in **batches of 50** per cycle:
-
-```mermaid
-sequenceDiagram
-    participant Local as Local SQLite
-    participant Sync as Sync Engine
-    participant Cloud as Supabase
-
-    Sync->>Local: SELECT * FROM transactions<br/>WHERE sync_status = 'pending' LIMIT 50
-    Local-->>Sync: pending_txns[]
-    
-    loop For each pending transaction
-        Sync->>Local: SELECT * FROM transaction_items<br/>WHERE transaction_id = ?
-        Local-->>Sync: items[]
-        Sync->>Cloud: POST /rest/v1/transactions<br/>(upsert, merge-duplicates)
-        Sync->>Cloud: POST /rest/v1/transaction_items<br/>(upsert, merge-duplicates)
-        Cloud-->>Sync: 201 Created
-        Sync->>Local: UPDATE sync_status = 'synced'<br/>WHERE id = ?
-    end
-```
-
-The Admin also pushes products, users, and settings with `sync_status = 'pending'` — these are changes made locally (e.g., adding a product, creating a user).
-
-> **LAN-aware optimization:** When a Cashier has an active LAN connection to the Admin, it **skips pushing transactions to the cloud**. The Admin receives them via WebSocket and pushes them to the cloud on the Cashier's behalf. This prevents race conditions where cloud sync marks transactions as `synced` before the LAN send task picks them up.
-
-### Pull Phase (Downstream)
-
-Data is pulled from Supabase using **paginated flat queries** (1,000 records per page) instead of embedded resources. This avoids the slow JSON aggregation that PostgREST performs for embedded resources.
-
-```mermaid
-sequenceDiagram
-    participant Local as Local SQLite
-    participant Sync as Sync Engine
-    participant Cloud as Supabase
-
-    Note over Sync,Cloud: Paginated pull (1,000 per page)
-    Sync->>Cloud: GET /rest/v1/products?limit=1000&offset=0
-    Cloud-->>Sync: products[] (page 1)
-    Sync->>Cloud: GET /rest/v1/products?limit=1000&offset=1000
-    Cloud-->>Sync: products[] (page 2, if any)
-    
-    Note over Sync,Local: Bulk upsert in single SQL transaction
-    Sync->>Local: BEGIN TRANSACTION
-    loop For each product
-        Sync->>Local: INSERT OR REPLACE INTO products<br/>WHERE sync_status != 'pending'
-    end
-    Sync->>Local: COMMIT
-
-    Note over Sync,Cloud: Same pattern for transactions, users, settings
-```
-
-**Smart conflict avoidance:** The `WHERE sync_status != 'pending'` clause ensures cloud data never overwrites local pending changes.
-
-| Mode | Max Pages per Entity | Max Records |
-|------|---------------------|-------------|
-| Admin | 50 | 50,000 |
-| Cashier | 5 | 5,000 |
-
----
-
-## Sync Status State Machine
-
-Every transaction carries a `sync_status` field that tracks its sync lifecycle:
-
-```mermaid
-stateDiagram-v2
-    [*] --> pending : Transaction created
-    pending --> synced : Successfully pushed to cloud/Admin
-    pending --> failed : Push failed after retries
-    failed --> pending : Retry triggered
-    synced --> [*]
-```
-
-| Status | Meaning |
-|--------|---------|
-| `pending` | Created locally, waiting to be pushed |
-| `synced` | Successfully stored in Supabase (or acknowledged by Admin) |
-| `failed` | Push attempt failed — will be retried |
-
----
-
-## Cloud Stock Deduction (Postgres Trigger)
-
-When transactions are pushed to Supabase, a **Postgres trigger** automatically deducts stock from the products table:
+The main sync engine runs in Rust, not in the React UI.
 
 ```mermaid
 flowchart TD
-    Insert["INSERT INTO transaction_items"]
-    Insert --> Trigger["AFTER INSERT trigger:<br/>deduct_stock()"]
-    Trigger --> Update["UPDATE products<br/>SET stock = stock - NEW.quantity<br/>WHERE id = NEW.product_id"]
-    Update --> Done["Stock updated atomically"]
+    Start["Sync loop running"]
+    Start --> Run["Run sync cycle"]
+    Run --> Success{"Success?"}
+    Success -->|Yes| Delay5["Wait 5 seconds"]
+    Success -->|No| Backoff["Wait with backoff up to 30 seconds"]
+    Delay5 --> Run
+    Backoff --> Run
 ```
 
-This ensures that stock deduction happens server-side regardless of which terminal pushed the transaction. The trigger is atomic — concurrent transactions are handled safely by Postgres.
+Current timing:
+
+| State | Delay |
+|-------|-------|
+| Healthy sync | 5 seconds |
+| Failing sync | `5 * (failures + 1)` seconds, capped at 30 |
+
+The loop also updates sync mode:
+
+- `online` when cloud is healthy
+- `local` when LAN is active and more relevant to the user
+- `offline` when cloud sync fails and LAN is not active
 
 ---
 
-## Initial Sync (During Splash Screen)
+## What Gets Pushed
 
-On app startup, a **one-time initial sync** runs during the splash screen:
+Push behavior depends on app role and LAN state.
+
+| Entity | Admin | Cashier |
+|--------|-------|---------|
+| `products` | Pushes pending changes | Does not push products |
+| `users` | Pushes pending changes | Does not push users |
+| `settings` | Pushes pending shared settings | Does not push settings |
+| `transactions` | Pushes when pending | Pushes only when LAN is not active |
+| `inventory_logs` | Pushes when pending | Pushes only when LAN is not active |
+
+Important rule:
+
+- If a cashier is connected to the Admin over LAN, it skips direct cloud pushes for transactions and inventory logs so the Admin stays the single upstream source for those sales.
+
+---
+
+## What Gets Pulled
+
+Both apps pull the same main entity sets from cloud:
+
+- Products
+- Transactions
+- Transaction items
+- Inventory logs
+- Users
+- Settings
+
+Pull safeguards in the current implementation:
+
+- Products only overwrite local rows when the local row is not `pending` and the incoming `updated_at` is newer.
+- Settings skip overwrite when local `sync_status` is `pending` or `local`.
+- LAN-originated synced rows are naturally protected from cloud deletion cleanup because cleanup only targets cloud-synced rows.
+
+---
+
+## Pagination and Pull Strategy
+
+The sync layer avoids embedded PostgREST queries for large transaction pulls. Instead, it fetches flat pages.
+
+Current pull sizes:
+
+| Entity | Page size / cap |
+|--------|------------------|
+| Products | 500 per page |
+| Transactions | 1000 per page |
+| Transaction pages | Up to 50 pages on Admin, 5 on Cashier |
+| Transaction items | Up to 50,000 items on Admin, 10,000 on Cashier |
+
+This keeps pull behavior predictable and avoids heavy server-side JSON aggregation.
+
+---
+
+## Stock Synchronization
+
+The current system does **not** use a cloud-side stock trigger.
+
+Instead, stock is handled this way:
+
+```mermaid
+flowchart TD
+    Sale["Sale completed locally"]
+    Sale --> LocalStock["SQLite deducts product stock immediately"]
+    LocalStock --> Pending["Pending transaction + inventory state queued"]
+    Pending --> Push["Cloud sync pushes transactions, inventory logs, and product state"]
+```
+
+Why there is no Supabase trigger:
+
+- Local SQLite already deducts stock at sale time.
+- Pushing updated product rows later keeps cloud aligned.
+- A second deduction on cloud insert would double-decrement stock.
+
+---
+
+## Initial Sync During Splash
+
+When committed cloud credentials are available at startup, the app attempts one sync cycle during the splash screen.
 
 ```mermaid
 sequenceDiagram
-    participant App as App Startup
-    participant Splash as Splash Screen
+    participant App as App startup
+    participant Splash as Splash screen
     participant Cloud as Supabase
 
-    App->>Splash: Show splash
-    App->>Cloud: Pull products, users, settings
-    
-    alt Sync succeeds within 10s
-        Cloud-->>App: Data received
-        App->>App: Upsert locally
-    else Sync times out or fails
+    App->>Cloud: Initial sync
+    alt Finishes in time
+        Cloud-->>App: Fresh data
+    else Timeout or failure
         App->>App: Continue with local data
     end
-    
-    App->>Splash: Close splash (min 3s)
-    App->>App: Show main window
+    App->>Splash: Close splash
 ```
 
-- **Minimum splash duration:** 3 seconds (ensures smooth visual transition)
-- **Maximum sync timeout:** 10 seconds (prevents blocking on slow connections)
-- **On failure:** App continues with whatever local data is available
+Current startup timing:
+
+- Minimum splash duration: 3 seconds
+- Initial cloud sync timeout budget: 10 seconds
 
 ---
 
-## Admin vs Cashier Sync Behavior
+## Realtime Broadcast Trigger
 
-| Behavior | Admin | Cashier |
-|----------|-------|---------|
-| **Push transactions** | Yes (its own + LAN-received cashier transactions) | Yes (its own) |
-| **Pull products** | Yes | Yes |
-| **Pull users** | Yes | Yes |
-| **Offline mode label** | "Local Network" (always serves cashiers) | "Offline" (unless LAN-connected) |
-| **LAN-received transactions** | Stored as `pending`, pushed to cloud | N/A |
+The frontend also uses a Supabase Realtime broadcast channel named `pos-sync`.
 
----
+Purpose:
 
-## Conflict Resolution
+- When one app finishes a relevant operation, it can broadcast `sync-triggered`.
+- Other clients can respond by requesting a targeted sync cycle.
 
-Since data flows are mostly **unidirectional** (transactions up, products down), conflicts are rare. The strategies for each case:
-
-| Data Type | Strategy | Detail |
-|-----------|----------|--------|
-| **Transactions** | No conflict possible | Always created locally, pushed upstream, never modified |
-| **Products** | Cloud wins | Cloud is the master for product data; local edits are pushed to cloud first |
-| **Stock** | Atomic deduction | Both local (SQLite transaction) and cloud (Postgres trigger) deduct atomically |
-| **Users** | Cloud wins | User data is managed in Supabase, pulled downstream |
-| **Duplicate pushes** | Upsert with merge | Supabase `UPSERT` with `resolution=merge-duplicates` ignores duplicate inserts |
+This is a trigger mechanism, not the main source of truth. The Rust sync loop remains the primary cloud synchronization engine.
 
 ---
 
-## Supabase Realtime
+## Conflict Handling
 
-The Supabase Postgres tables `products` and `transactions` have **Realtime** enabled. This allows the Admin dashboard to receive live updates without polling:
+The current design keeps most conflict cases simple:
 
-```mermaid
-flowchart LR
-    Change["Product updated in Supabase"]
-    Change --> Realtime["Supabase Realtime Engine"]
-    Realtime --> Broadcast["WebSocket broadcast"]
-    Broadcast --> AdminApp["Admin App receives update"]
-    AdminApp --> Refresh["UI refreshes data"]
-```
+| Data type | Strategy |
+|-----------|----------|
+| Transactions | Append-only upstream records |
+| Products | Prefer newer cloud row unless local row is still pending |
+| Settings | Preserve local-only settings and pending local edits |
+| Users | Admin-managed rows flow downstream and upstream through sync status rules |
+| Deletions | Use tombstones or deletion cleanup against synced rows |
 
-This is used for:
-- Live product price/stock updates reflected in the Admin UI
-- Real-time transaction notifications when other terminals sync
+---
+
+## Practical Summary
+
+Cloud sync is designed to be:
+
+- Optional
+- Background-only
+- Safe to ignore during checkout
+- Coordinated with LAN behavior so cashiers do not race the Admin

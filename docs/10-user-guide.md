@@ -2,35 +2,29 @@
 
 ## Table of Contents
 
-- [Installation](#installation)
-- [System Requirements](#system-requirements)
-- [First Launch](#first-launch)
-- [Cashier Guide](#cashier-guide)
-- [Admin Guide](#admin-guide)
-- [Network Setup](#network-setup)
-- [Troubleshooting](#troubleshooting)
+- Installation
+- System Requirements
+- First Launch
+- Cashier Guide
+- Admin Guide
+- Network Setup
+- Troubleshooting
 
 ---
 
 ## Installation
 
-### Downloading the Installers
+1. Download the installer from the [Releases](https://github.com/BootlegYouki/at-iba-pa-pos/releases) page.
+2. Install **Admin IMS** on the manager workstation and **Cashier POS** on cashier terminals as needed.
+3. Launch the app from the desktop shortcut.
 
-1. Go to the [Releases](https://github.com/BootlegYouki/at-iba-pa-pos/releases) page
-2. Download the appropriate installer:
-   - **Admin IMS Setup.exe** — for the manager's PC
-   - **Cashier POS Setup.exe** — for each checkout terminal
-3. Run the installer and follow the setup wizard
-4. Launch the app from the desktop shortcut
-
-### Where Data is Stored
+Data locations:
 
 | Item | Location |
 |------|----------|
-| **Admin database** | `%APPDATA%\com.pos.admin\pos-admin.db` |
-| **Cashier database** | `%APPDATA%\com.pos.cashier\pos-cashier.db` |
-| **App settings** | `%APPDATA%\com.pos.{app}\.settings.dat` |
-| **Logs** | `%APPDATA%\com.pos.{app}\logs\` |
+| Admin database | `%APPDATA%\com.pos.admin\pos-admin.db` |
+| Cashier database | `%APPDATA%\com.pos.cashier\pos-cashier.db` |
+| Tauri settings store | `%APPDATA%\com.pos.{app}\.settings.dat` |
 
 ---
 
@@ -38,333 +32,273 @@
 
 | Requirement | Minimum |
 |-------------|---------|
-| **Operating System** | Windows 10 (64-bit) or later |
-| **RAM** | 2 GB |
-| **Storage** | 200 MB free space |
-| **Display** | 1280 × 720 resolution |
-| **Network** | LAN (for multi-terminal sync) |
-| **Internet** | Optional (for cloud sync & AI) |
-| **Barcode Scanner** | Any USB HID scanner |
-| **Customer Display** | Optional second monitor |
+| OS | Windows 10 64-bit or later |
+| RAM | 2 GB |
+| Storage | 200 MB free |
+| Display | 1280 x 720 |
+| Network | LAN for multi-terminal use |
+| Internet | Optional for cloud sync and hosted AI |
+| Scanner | USB HID barcode scanner |
 
 ---
 
 ## First Launch
 
-On the very first launch, the app automatically:
+On a fresh local database, the app:
 
-1. Creates the local database
-2. Loads sample products (29 items with barcodes)
-3. Loads sample transaction history
-4. Displays the login screen
+1. Creates the SQLite database
+2. Seeds default categories
+3. Seeds default store settings
+4. Creates a default Admin account if no Admin exists
 
-This sample data helps you explore the system immediately. You can delete it and add your own products through the Admin Inventory page.
+Default Admin credentials:
+
+- Username: `admin`
+- Password: `admin123`
+
+The app does **not** currently preload sample products or sample transaction history.
 
 ---
 
 ## Cashier Guide
 
-### Logging In
+### Before a cashier can log in
 
-1. Launch the **Cashier POS** app
-2. Select your name from the cashier list
-3. Enter your **PIN** (4–6 digits)
-4. The POS interface loads and the **customer display window** opens automatically
+Cashier accounts are created from **Admin Settings**. Only active cashier accounts appear on the Cashier login screen.
 
-### The POS Interface
+### Logging in
+
+1. Launch **Cashier POS**
+2. Select your cashier name
+3. Enter your **4-digit PIN**
+4. The POS screen opens
+5. The customer display window opens automatically if it is enabled
+
+### Core cashier flow
 
 ```mermaid
-graph LR
-    subgraph Layout["POS Layout (70/30 Split)"]
-        direction LR
-        subgraph Left["Left Pane — Product Catalog"]
-            Scanner["🔍 Scanner Input Field"]
-            Categories["📁 Category Tabs"]
-            Grid["📦 Product Grid"]
-        end
-        subgraph Right["Right Pane — Cart & Payment"]
-            Cart["🛒 Cart Items"]
-            Total["💰 Total"]
-            PayBtn["💳 Pay Button"]
-        end
-    end
+flowchart LR
+    Scan["Scan or search product"] --> Cart["Review cart"]
+    Cart --> Pay["Open payment flow"]
+    Pay --> Complete["Complete transaction"]
+    Complete --> Receipt["Show QR receipt"]
 ```
 
-### Scanning Items
+### Adding products
 
-**Using a barcode scanner:**
-- Simply scan the barcode — the product is added to the cart automatically
-- No need to click or focus on any field
-- Scanner works regardless of where you are in the app
+You can add items by:
 
-**Multiple units:**
-- Type `3*` then scan (or type `3*4800016641234` + Enter) to add 3 units
+- Scanning a barcode
+- Typing a barcode manually and pressing Enter
+- Searching by product name
+- Clicking a product card
 
-**Manual selection:**
-- Click on a product card in the grid
-- Or type the product name in the search field
+Multiplier syntax is supported:
 
-### Cart Operations
+- Example: `3*4800016641234`
+
+That adds three units of the scanned barcode.
+
+### Cart controls
 
 | Action | Method |
 |--------|--------|
-| **Add item** | Scan barcode, click product card, or search |
-| **Change quantity** | Click `+` / `-` buttons on cart item, or use `+` / `-` keys |
-| **Remove item** | Click the trash icon, or press `Delete` / `Backspace` |
-| **Clear cart** | Press `F4` or click "Cancel Transaction" |
+| Add item | Scan, search, or click product |
+| Change quantity | Use the `+` or `-` cart buttons |
+| Remove item | Use the trash/remove button |
+| Clear cart | `F4` from cart state |
 
-### Processing Payments
+### Payment flow
 
-1. Press **F8** or click **"Pay"** to open the payment dialog
-2. The cart sidebar transitions into the payment view:
-   - **Amount Due** is displayed prominently
-   - **Quick Cash Buttons** (₱50, ₱100, ₱500, ₱1000, Exact) for fast entry
-   - **Custom Amount** input for exact change
-3. Select payment method: **Cash**, **Card**, **GCash**, or **Maya**
-   - For Card, GCash, or Maya: enter the reference number
-   - For non-Cash methods, the tendered amount is automatically set to the exact total
-4. Click **"Confirm Payment"** (or press Enter)
-5. **Change due** is displayed
-6. The **customer display** shows the receipt with a QR code
-7. The cart resets for the next customer
+Supported payment methods:
 
-### Keyboard Shortcuts
+- Cash
+- Card
+- GCash
+- Maya
 
-| Key | Action |
-|-----|--------|
-| **F8** | Open payment dialog |
-| **F4** or **Esc** | Cancel transaction / close dialog |
-| **Space** | Focus the scanner input field |
-| **Enter** | Confirm payment (when in payment dialog) |
-| **+** / **-** | Increase / decrease selected item quantity |
-| **Delete** / **Backspace** | Remove selected item from cart |
+Quick cash buttons currently include:
 
-### Customer Display
+- `20`
+- `50`
+- `100`
+- `200`
+- `500`
+- `1000`
+- Exact Amount
 
-The customer-facing screen shows:
-- **Welcome screen** when idle (store branding + time)
-- **Live cart** as items are scanned (updated in real time)
-- **Payment processing** animation
-- **Receipt + QR code** after each sale (auto-resets after 20 seconds)
+For Card, GCash, and Maya:
 
-Customers scan the QR code with their phone camera to view and download their receipt.
+- The reference number field is shown
+- The tendered amount is treated as the exact total
 
-### Logging Out
+### Verified keyboard shortcuts
 
-- Click the **gear icon** → **Log Out**
-- Or wait for the **auto-logout timer** (if enabled)
-- The customer display window closes automatically
+| Shortcut | Action |
+|----------|--------|
+| `Space` | Focus scanner input |
+| `F8` | Open payment flow, or confirm payment when ready |
+| `F4` | Clear cart or finish/cancel the current payment state |
+| `Esc` | Return from payment screen to cart |
+
+### Customer display
+
+The customer-facing screen can show:
+
+- Idle welcome screen
+- Live cart contents
+- Payment processing state
+- Final receipt QR code
+
+### Logout and inactivity
+
+- Cashiers can log out from the settings dialog
+- Cashier auto-logout is currently fixed at **15 minutes** of inactivity
 
 ---
 
 ## Admin Guide
 
-### Logging In
+### Logging in
 
-1. Launch the **Admin IMS** app
-2. Enter your **username and password**
-3. The dashboard loads with today's summary
+1. Launch **Admin IMS**
+2. Enter your username and password
+3. Open the dashboard
 
-### Dashboard
+### Main Admin areas
 
-The dashboard provides an at-a-glance overview:
+| Area | Purpose |
+|------|---------|
+| Dashboard | Revenue, top products, recent activity, low-stock visibility |
+| Inventory | Product catalog management and stock thresholds |
+| Transactions | Searchable transaction history |
+| Reports | Charts, date ranges, and export entry point |
+| Settings | Users, store config, cloud config, AI config, backup/reset tools |
 
-| Widget | Shows |
-|--------|-------|
-| **Revenue Summary** | Today's / this week's / this month's total revenue |
-| **Revenue Chart** | Line chart of daily revenue (last 30 days) |
-| **Top Products** | Best-selling items by quantity |
-| **Recent Activity** | Latest transactions |
-| **Low Stock Alerts** | Products below their threshold |
+### Inventory workflow
 
-### Managing Inventory
+From **Inventory**, Admin users can:
 
-Navigate to **Inventory** from the sidebar.
+- Add products
+- Edit product details
+- Archive or hide products
+- Search and filter by category
+- Set low-stock thresholds
 
-**Adding a product:**
-1. Click **"Add Product"**
-2. Scan or type the barcode
-   - If the barcode is recognized (OpenFoodFacts), product details are auto-filled
-3. Fill in: name, price, stock quantity, category
-4. Click **"Save"**
+### Transactions and reports
 
-**Editing a product:**
-1. Find the product in the list (search or filter by category)
-2. Click the **edit icon**
-3. Update fields as needed
-4. Click **"Save"**
+Admin users can:
 
-**Stock management:**
-- Stock is **automatically deducted** when sales are made
-- Low stock products are highlighted with a warning badge
-- Set the **low stock threshold** per product (default: 10 units)
+- Browse transactions by date range
+- Inspect transaction line items
+- Review charts for sales, payment methods, and product performance
+- Open the export workflow from the Reports page
 
-### Viewing Transactions
+### Export reports
 
-Navigate to **Transactions** from the sidebar.
+The export screen supports:
 
-| Feature | Description |
-|---------|-------------|
-| **Search** | Search by cashier name, transaction ID, or payment method |
-| **Date filter** | Filter transactions by date range |
-| **Detail view** | Click a transaction to see its line items |
-| **Pagination** | Browse through large transaction histories |
-| **CSV/XLSX Export** | Download filtered transactions as a spreadsheet |
+- Separate-sheet or combined-sheet workbook layout
+- Per-section enable/disable and reordering
+- Date-range overrides for report sections
+- Inventory-oriented filters for stock exports
 
-### Reports & Analytics
+### AI assistant
 
-Navigate to **Reports** from the sidebar.
+Admin-only AI features include:
 
-| Report | Chart Type | Shows |
-|--------|-----------|-------|
-| **Sales Trend** | Line chart | Revenue per day over selected range |
-| **Payment Methods** | Pie/donut chart | Breakdown by payment method (Cash, Card, GCash, Maya) |
-| **Peak Hours** | Bar chart | Transaction count by hour |
-| **Top Products** | Horizontal bar chart | Revenue by product |
+- Groq, Mistral, or local Ollama provider selection
+- Saved conversation history
+- File attachments
+- Fullscreen sidebar mode
 
-**Date range:** Use the date picker at the top to select Today, This Week, This Month, or a custom range.
+### Settings
 
-**Exports:**
-- **CSV** — Download chart data as a CSV file
-- **XLSX** — Download as an Excel spreadsheet
-- **Print (Z-Report)** — Print a formatted sales summary
+Key settings areas:
 
-### AI Agent
-
-Click the **AI icon** in the sidebar to open the AI Agent:
-
-1. **Select a provider and model** — configure Groq, Mistral, or Local Ollama in Settings → AI
-2. **Type a question** — e.g., "What are my top sellers this month?" or "Which items are running low?"
-3. Optionally **attach files** (up to 5 files, 300 KB each) by clicking the paperclip or pasting from clipboard
-4. Press **Enter** to send; **Shift+Enter** for a new line
-5. The AI streams its response in real time
-6. Click the **fullscreen icon** to expand the sidebar to fill the screen
-7. Access **conversation history** via the clock icon — all chats are saved locally in the database
-8. **Regenerate** the last response if needed via the regenerate button
-
-> AI features require internet access for Groq and Mistral providers. Local Ollama works fully offline.
-
-### System Settings
-
-Navigate to **Settings** from the sidebar.
-
-| Setting | Description |
-|---------|-------------|
-| **Store Name** | Displayed on receipts and customer display |
-| **Theme** | Light, Dark, or System (OS-based) |
-| **User Management** | Add/edit/deactivate cashier accounts and PINs |
-| **Cloud Sync** | View sync status and configure Supabase connection |
+| Setting area | Purpose |
+|--------------|---------|
+| Store settings | Store name and related display values |
+| Theme | Light, dark, or system behavior |
+| User management | Admin and cashier accounts |
+| Cloud sync | Supabase connection and setup SQL |
+| Backup / reset | Local data export, restore, and reset tools |
+| AI | Provider, key, and model selection |
 
 ---
 
 ## Network Setup
 
-### Single Terminal Setup
+### Single-terminal setup
 
-If you're using only one computer:
-- Install **Admin IMS** (it includes all features)
-- No network configuration needed
+If only one machine will be used:
 
-### Multi-Terminal Setup
+- Install Admin IMS
+- No LAN setup is required
 
-```mermaid
-graph TB
-    subgraph Network["Local Network (LAN)"]
-        Router["🌐 Router / Switch"]
-        AdminPC["🖥️ Admin PC<br/>(Admin IMS)"]
-        Cashier1["💻 Cashier 1<br/>(Cashier POS)"]
-        Cashier2["💻 Cashier 2<br/>(Cashier POS)"]
-        CustomerScreen["📺 Customer Display<br/>(Second monitor on Cashier)"]
-    end
+### Multi-terminal setup
 
-    Router --- AdminPC
-    Router --- Cashier1
-    Router --- Cashier2
-    Cashier1 --- CustomerScreen
-```
+1. Connect all devices to the same local network
+2. Start **Admin IMS** first
+3. Start **Cashier POS** terminals
+4. Let cashiers auto-discover the Admin, or connect manually by IP if needed
 
-**Steps:**
-
-1. Connect all PCs to the same **local network** (LAN)
-2. Install **Admin IMS** on the manager's PC
-3. Install **Cashier POS** on each checkout terminal
-4. Launch the **Admin app first** — it starts the sync server automatically
-5. Launch the **Cashier apps** — they will **auto-discover** the Admin and connect6. Configure **Supabase cloud sync** on the Admin only — credentials are **automatically pushed** to all connected cashiers via LAN (encrypted at rest on each cashier)
-### Auto-Discovery
-
-The Admin broadcasts a UDP beacon every 3 seconds. Cashier apps listen for this beacon and connect automatically — no IP address configuration needed.
-
-If auto-discovery doesn't work (e.g., on a VLAN), you can manually set the Admin IP:
-
-1. On the **Cashier app**, click the **gear icon**
-2. Enter the **Admin PC's IP address** in the "Admin Local IP" field
-3. The cashier will connect directly
-### Manual Disconnect Behavior
-
-When you manually disconnect a cashier from the Admin (via the Settings gear icon):
-
-- The cashier performs a **LAN scan** to discover available Admin servers
-- The cashier does **not** automatically reconnect — you must click "Connect" to re-establish the link
-- Auto-connect resumes normally after you explicitly reconnect or restart the app
-### Firewall Configuration
-
-On the **Admin PC**, allow these ports through Windows Firewall:
+Required Admin firewall ports:
 
 | Port | Protocol | Purpose |
 |------|----------|---------|
-| **3080** | TCP (Inbound) | WebSocket server for cashier sync |
-| **3081** | UDP (Broadcast) | Auto-discovery beacon |
+| `3080` | TCP | LAN WebSocket sync |
+| `3081` | UDP | Admin discovery beacon |
 
-**How to allow ports in Windows Firewall:**
+### Cloud configuration in a LAN setup
 
-1. Open **Windows Defender Firewall with Advanced Security**
-2. Click **Inbound Rules** → **New Rule**
-3. Select **Port** → **TCP** → Enter **3080** → **Allow** → Name it "POS Sync"
-4. Repeat for **UDP** port **3081** → Name it "POS Discovery"
+Cloud sync is configured from the Admin side first.
+
+Cashier behavior after Admin shares cloud credentials:
+
+- Cashier receives pending credentials automatically over LAN
+- Cashier Settings shows a **Ready** cloud state
+- Cashier can activate that cloud configuration from the settings dialog
 
 ---
 
 ## Troubleshooting
 
-### Cashier can't connect to Admin
+### Cashier cannot connect to Admin
 
-| Check | Solution |
-|-------|----------|
-| Both on same network? | Ensure same router/switch, no VLAN separation |
-| Admin app running? | Start Admin IMS before Cashier POS |
-| Firewall blocking? | Allow ports 3080 (TCP) and 3081 (UDP) on Admin PC |
-| Auto-discovery failing? | Enter Admin IP manually in Cashier settings || Manually disconnected? | After a manual disconnect, auto-connect is disabled. Click "Connect" to reconnect. |
-### Sync indicator shows "Offline"
+| Check | What to do |
+|-------|------------|
+| Same LAN? | Ensure both machines are on the same local network |
+| Admin running? | Start Admin IMS first |
+| Firewall open? | Allow TCP 3080 and UDP 3081 on the Admin PC |
+| Broadcast blocked? | Use manual IP entry from Cashier Settings |
+| Manually disconnected earlier? | Reconnect manually or restart the cashier app |
 
-| Status | Meaning | Action |
-|--------|---------|--------|
-| 🔴 Offline | No internet and no LAN connection | Check network cables, start Admin app |
-| 🟡 Local Network | No internet, but connected to Admin via LAN | Normal — sales will sync to cloud when internet returns |
-| 🟢 Online | Cloud sync active | Everything is working |
+### No cashier accounts appear
 
-### Products not showing on Cashier
+Possible causes:
 
-- Ensure the Cashier is **connected to Admin** (check sync indicator)
-- Products sync from Admin/Cloud to Cashier on initial connection
-- Try restarting the Cashier app to trigger a fresh sync
+- Admin has not created cashier users yet
+- Cashier has not synced with Admin or cloud yet
+- Cashier accounts are inactive
 
-### Cloud sync not working on Cashier
+### Cloud sync does not activate on cashier
 
-- Cloud credentials are **automatically received from Admin** via LAN — no manual configuration needed on the cashier
-- Ensure the Cashier is **connected to Admin via LAN** and the Admin has cloud sync configured
-- If the Admin clears cloud config, all cashiers will automatically stop cloud sync
-- Check the "Cloud Sync" section in the Cashier settings — it should show the connection status (read-only)
+Check the cashier cloud panel:
 
-### Database reset
+- **Ready** means the Admin sent pending credentials
+- **Connected** means the cashier has activated them
 
-To start fresh:
-1. Close the app
-2. Navigate to `%APPDATA%\com.pos.{admin or cashier}\`
-3. Delete the `pos-{mode}.db` file
-4. Relaunch — a fresh database with sample data will be created
+If it only shows Ready, connect it from Cashier Settings.
 
-### Customer display not opening
+### Products are missing on cashier
 
-- The display opens automatically when a cashier **logs in**
-- If closed accidentally, it **reopens automatically** on the next scan
-- Ensure the second monitor is connected and extended (not mirrored)
+| Check | What to do |
+|-------|------------|
+| LAN connected? | Verify cashier is connected to Admin |
+| Initial sync completed? | Wait a moment or reconnect |
+| Product active? | Archived products are not part of the normal active cashier catalog |
+
+### Resetting local data
+
+The Admin Settings page includes reset and restore actions for local data management. Use those tools instead of deleting files manually when possible.

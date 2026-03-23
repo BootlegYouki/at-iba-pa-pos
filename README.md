@@ -6,7 +6,7 @@
 <h3 align="center">Point of Sale & Inventory Management System</h3>
 
 <p align="center">
-  A high-performance, offline-first desktop POS system with barcode scanning, real-time inventory tracking, LAN sync, cloud backup, AI-powered analytics, and digital QR receipts.
+  Offline-first Windows desktop POS software with barcode scanning, live inventory updates, LAN sync, runtime-configured Supabase backup, an Admin AI assistant, and QR-based digital receipts.
 </p>
 
 <p align="center">
@@ -19,62 +19,69 @@
   <br>
   <img src="https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite">
   <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase">
-  <img src="https://img.shields.io/badge/shadcn/ui-000000?style=for-the-badge&logo=shadcnui&logoColor=white" alt="shadcn/ui">
-  <img src="https://img.shields.io/badge/Groq-000?style=for-the-badge&logo=groq&logoColor=white" alt="Groq">
+  <img src="https://img.shields.io/badge/shadcn%2Fui-000000?style=for-the-badge&logo=shadcnui&logoColor=white" alt="shadcn/ui">
+  <img src="https://img.shields.io/badge/Groq-000000?style=for-the-badge&logo=groq&logoColor=white" alt="Groq">
 </p>
 
 <p align="center">
-  <a href="#-features">Features</a> •
-  <a href="#-download">Download</a> •
-  <a href="#-installation">Installation</a> •
-  <a href="#-documentation">Documentation</a> •
-  <a href="#-system-requirements">System Requirements</a>
+  <a href="#features">Features</a> |
+  <a href="#download">Download</a> |
+  <a href="#installation">Installation</a> |
+  <a href="#documentation">Documentation</a> |
+  <a href="#system-requirements">System Requirements</a>
 </p>
 
 ---
 
-## ✨ Features
+## Features
 
 | Feature | Description |
 |---------|-------------|
-| **Barcode Scanning** | Instant product lookup via USB barcode scanner — no focus required |
-| **Sales Processing** | Fast checkout with Cash, Card, GCash & Maya payments, keyboard shortcuts for speed |
-| **Inventory Management** | Add, edit, delete products with low-stock alerts and category filtering |
-| **Reports & Analytics** | Daily/weekly/monthly sales reports, charts, CSV/XLSX export, printable Z-Reports |
-| **AI Analytics** | Groq-powered sales trend analysis and stock predictions (Admin only) |
-| **Customer Display** | Second-screen support showing live cart and QR digital receipts |
-| **Local Network Sync** | Admin and Cashier sync over LAN when internet is unavailable |
-| **Cloud Backup** | Automatic background sync to Supabase when online |
-| **Dark Mode** | System-aware theme with manual toggle |
-| **Offline-First** | Fully operational without internet — zero downtime |
+| **Fast checkout** | Barcode-first cashier flow with cart controls, keyboard shortcuts, and Cash, Card, GCash, and Maya payments |
+| **Inventory management** | Product CRUD, category filtering, low-stock thresholds, archive support, and stock-aware reporting |
+| **Offline-first operation** | Each Admin and Cashier terminal keeps a local SQLite database and continues working without internet |
+| **LAN sync** | Cashier terminals auto-discover the Admin over UDP and sync through a local WebSocket server |
+| **Cloud backup** | Optional Supabase sync runs in the background when credentials are configured at runtime |
+| **Customer display** | Dedicated second-screen experience showing live cart, payment state, and receipt QR code |
+| **Digital receipts** | Receipts are encoded into a QR URL that customers can open on their phones |
+| **Reports and exports** | Admin dashboards, transaction history, and configurable XLSX workbook exports |
+| **Admin AI assistant** | Sidebar assistant with Groq, Mistral, or local Ollama models, saved conversations, and file attachments |
+| **Desktop-native packaging** | Tauri-based Windows apps with separate Admin IMS and Cashier POS builds |
 
 ---
 
-## 📥 Download
+## Download
 
-> Download the latest installers from the [**Releases**](https://github.com/BootlegYouki/at-iba-pa-pos/releases) page.
+Download the latest installers from the [Releases](https://github.com/BootlegYouki/at-iba-pa-pos/releases) page.
 
-| App | Description | Download |
-|-----|-------------|----------|
-| **Admin IMS** | Inventory management, reports, analytics, settings | [Latest Release](https://github.com/BootlegYouki/at-iba-pa-pos/releases) |
-| **Cashier POS** | Point-of-sale checkout terminal | [Latest Release](https://github.com/BootlegYouki/at-iba-pa-pos/releases) |
-
-Both apps are built as standalone Windows `.exe` installers.
+| App | Description |
+|-----|-------------|
+| **Admin IMS** | Inventory, reports, settings, user management, AI assistant, and LAN server |
+| **Cashier POS** | Checkout, customer display, LAN client, and optional cloud connection |
 
 ---
 
-## 🚀 Installation
+## Installation
 
-1. Download the **Admin IMS** and/or **Cashier POS** installer from [Releases](https://github.com/BootlegYouki/at-iba-pa-pos/releases)
-2. Run the `.exe` installer and follow the setup wizard
-3. Launch the app — on first run, sample data is automatically loaded
-4. For multi-terminal setups, install **Admin IMS** on the manager's PC and **Cashier POS** on each checkout terminal
+1. Download the installer you need from [Releases](https://github.com/BootlegYouki/at-iba-pa-pos/releases).
+2. Run the Windows installer and complete setup.
+3. Launch the app.
+4. On first run, the app creates its local SQLite database, seeds default categories and store settings, and creates a default Admin account if none exists.
 
-> **Networking:** Both apps must be on the same local network (LAN) for local sync. See the [Networking Guide](docs/04-networking.md) for firewall setup.
+Default Admin credentials:
+
+- Username: `admin`
+- Password: `admin123`
+
+For multi-terminal setups:
+
+1. Install **Admin IMS** on the manager workstation.
+2. Install **Cashier POS** on each checkout terminal.
+3. Start the Admin app first so cashiers can auto-discover it on the LAN.
 
 ---
 
-## 📸 Screenshots
+## Screenshots
 
 <details>
 <summary>Click to expand screenshots</summary>
@@ -99,75 +106,79 @@ Both apps are built as standalone Windows `.exe` installers.
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 | # | Document | Description |
 |---|----------|-------------|
-| 1 | [Product Overview](docs/01-overview.md) | Background, target users, features, scope |
-| 2 | [System Architecture](docs/02-architecture.md) | Tech stack, dual-app design, data flow |
-| 3 | [Database & Data Layer](docs/03-database.md) | SQLite schema, DAL pattern, stock algorithm |
-| 4 | [Local Network Sync](docs/04-networking.md) | LAN WebSocket sync, auto-discovery protocol |
-| 5 | [Cloud Sync](docs/05-cloud-sync.md) | Supabase sync algorithm, conflict resolution |
-| 6 | [Barcode Scanner](docs/06-barcode-scanner.md) | Global keystroke hook, timing heuristics |
-| 7 | [Customer Display & Receipts](docs/07-customer-display.md) | Multi-window, QR receipts, receipt website |
-| 8 | [AI Analytics](docs/08-ai-analytics.md) | Multi-provider AI agent, conversation history, attachments |
-| 9 | [Security](docs/09-security.md) | Authentication, encryption, RLS |
-| 10 | [User Guide](docs/10-user-guide.md) | Installation, cashier guide, admin guide |
-| 11 | [Performance](docs/11-performance.md) | Database tuning, indexes, batch ops, pagination |
-| 12 | [Database Schema](docs/database_schema.md) | Full SQLite structure, tables, and fields |
-| 13 | [Export Reports](docs/12-export-reports.md) | Workbook export config, section ordering, filters |
+| 1 | [Product Overview](docs/01-overview.md) | Users, goals, feature scope, and product boundaries |
+| 2 | [System Architecture](docs/02-architecture.md) | Dual-app layout, tech stack, IPC boundary, and startup flow |
+| 3 | [Database & Data Layer](docs/03-database.md) | Local schema, DAL conventions, sync statuses, and stock handling |
+| 4 | [Local Network Sync](docs/04-networking.md) | LAN discovery, WebSocket message flow, and cashier/admin coordination |
+| 5 | [Cloud Sync](docs/05-cloud-sync.md) | Runtime Supabase configuration, sync loop, and offline/cloud behavior |
+| 6 | [Barcode Scanner](docs/06-barcode-scanner.md) | Scanner heuristics, multiplier syntax, and input handling |
+| 7 | [Customer Display & Receipts](docs/07-customer-display.md) | Customer-facing window, QR receipts, and receipt display flow |
+| 8 | [AI Analytics](docs/08-ai-analytics.md) | Admin AI sidebar, provider options, conversations, and attachments |
+| 9 | [Security](docs/09-security.md) | Authentication, hashing, encryption boundaries, and transport assumptions |
+| 10 | [User Guide](docs/10-user-guide.md) | Setup, cashier workflow, admin workflow, and troubleshooting |
+| 11 | [Performance](docs/11-performance.md) | SQLite tuning, batching, pagination, and runtime considerations |
+| 12 | [Database Schema](docs/database_schema.md) | Table-by-table SQLite reference |
+| 13 | [Export Reports](docs/12-export-reports.md) | Workbook layouts, export sections, filters, and file output behavior |
 
 ---
 
-## 💻 System Requirements
+## System Requirements
 
 | Requirement | Minimum |
 |-------------|---------|
 | **OS** | Windows 10 (64-bit) or later |
 | **RAM** | 2 GB |
 | **Storage** | 200 MB |
-| **Display** | 1280 × 720 |
-| **Network** | LAN (for multi-terminal sync) |
-| **Internet** | Optional (for cloud sync & AI features) |
-| **Barcode Scanner** | Any USB HID scanner (keyboard emulation) |
+| **Display** | 1280 x 720 |
+| **Network** | LAN for multi-terminal sync |
+| **Internet** | Optional, used for cloud sync and hosted AI providers |
+| **Barcode Scanner** | Any USB HID scanner |
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 ```mermaid
 graph TB
-    subgraph Desktop["Desktop Application (Tauri 2.x)"]
-        direction TB
-        Frontend["React 18 + TypeScript + Vite"]
-        UI["shadcn/ui + Tailwind CSS"]
-        Backend["Rust Backend"]
-        SQLite["SQLite Database"]
-        Frontend --> UI
-        Frontend --> Backend
-        Backend --> SQLite
+    subgraph Desktop["Desktop Applications"]
+        Admin["Admin IMS"]
+        Cashier["Cashier POS"]
+        UI["React 18 + TypeScript + Vite"]
+        Rust["Tauri 2 + Rust"]
+        SQLite["SQLite"]
+        UI --> Rust
+        Rust --> SQLite
+        Admin --> UI
+        Cashier --> UI
     end
 
-    subgraph Cloud["Cloud Services"]
-        Supabase["Supabase (Postgres + Realtime)"]
-        Groq["Groq Cloud (AI)"]
-        EdgeFn["Edge Functions"]
-        Supabase --> EdgeFn
-        EdgeFn --> Groq
+    subgraph Cloud["Optional Cloud Services"]
+        Supabase["Supabase Postgres + Realtime"]
+        Groq["Groq"]
+        Mistral["Mistral"]
+        Ollama["Local Ollama"]
     end
 
-    Backend -->|"Background Sync"| Supabase
-    Frontend -->|"AI Queries"| EdgeFn
+    Admin -->|"LAN server"| Cashier
+    Admin -->|"Background sync"| Supabase
+    Cashier -->|"Background sync when applicable"| Supabase
+    Admin -->|"AI requests"| Groq
+    Admin -->|"AI requests"| Mistral
+    Admin -->|"AI requests"| Ollama
 ```
 
 ---
 
-## 📄 License
+## License
 
 This project is proprietary software developed for AT-IBA-PA MINIMART.
 
 ---
 
-## 📝 Changelog
+## Changelog
 
 See [CHANGELOG.md](CHANGELOG.md) for version history.

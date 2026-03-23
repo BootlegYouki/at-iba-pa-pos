@@ -1,86 +1,129 @@
-# Database Schema Documentation
+# Database Schema Reference
 
-This document outlines the database schema for the Point of Sale (POS) and Inventory Management System (IMS) application. The backend uses SQLite, managed via Tauri and Rust (`src-tauri/src/db.rs`).
+This reference mirrors the SQLite schema created by the Rust startup logic.
 
-## Tables Overview
+## Tables
 
 ### 1. `products`
-Stores all inventory items.
-- `id` (TEXT, PRIMARY KEY): Unique identifier.
-- `barcode` (TEXT, UNIQUE NOT NULL): Product barcode.
-- `name` (TEXT, NOT NULL): Product name.
-- `price` (REAL, NOT NULL): Selling price.
-- `stock` (INTEGER, NOT NULL, DEFAULT 0): Current stock level.
-- `category` (TEXT, NOT NULL, DEFAULT 'Uncategorized'): Product category.
-- `sku` (TEXT): Stock Keeping Unit identifier.
-- `low_stock_threshold` (INTEGER, NOT NULL, DEFAULT 10): Alert threshold for low stock.
-- `created_at` (TEXT, NOT NULL, DEFAULT `datetime('now')`): Creation timestamp (ISO 8601).
-- `updated_at` (TEXT, NOT NULL, DEFAULT `datetime('now')`): Last update timestamp (ISO 8601).
-- `sync_status` (TEXT, NOT NULL, DEFAULT 'synced'): Synchronization status (`pending`, `synced`, `failed`, `deleted`).
-- `is_active` (INTEGER, NOT NULL, DEFAULT 1): Soft delete flag (1 for active, 0 for archived).
 
-### 2. `transactions`
-Records each completed sale.
-- `id` (TEXT, PRIMARY KEY): Unique identifier.
-- `total` (REAL, NOT NULL): Total transaction amount.
-- `cashier` (TEXT, NOT NULL): Name or ID of the cashier who processed the transaction.
-- `payment_method` (TEXT, NOT NULL): E.g., Cash, Card, etc.
-- `amount_paid` (REAL, NOT NULL): The amount tendered by the customer.
-- `reference_number` (TEXT): Optional reference number for the transaction.
-- `created_at` (TEXT, NOT NULL, DEFAULT `datetime('now')`): Transaction timestamp.
-- `sync_status` (TEXT, NOT NULL, DEFAULT 'pending'): Cloud synchronization status.
+- `id` TEXT PRIMARY KEY
+- `barcode` TEXT NOT NULL UNIQUE
+- `name` TEXT NOT NULL
+- `price` REAL NOT NULL
+- `stock` INTEGER NOT NULL DEFAULT `0`
+- `category` TEXT NOT NULL DEFAULT `'Uncategorized'`
+- `sku` TEXT
+- `low_stock_threshold` INTEGER NOT NULL DEFAULT `10`
+- `created_at` TEXT NOT NULL DEFAULT `datetime('now')`
+- `updated_at` TEXT NOT NULL DEFAULT `datetime('now')`
+- `sync_status` TEXT NOT NULL DEFAULT `'synced'`
+- `is_active` INTEGER NOT NULL DEFAULT `1`
 
-### 3. `transaction_items`
-Records individual items sold within a transaction.
-- `id` (TEXT, PRIMARY KEY): Unique line item identifier.
-- `transaction_id` (TEXT, NOT NULL): Foreign key linking to `transactions(id)`.
-- `product_id` (TEXT, NOT NULL): The ID of the product sold.
-- `product_name` (TEXT, NOT NULL): Denormalized product name at the time of sale.
-- `category` (TEXT, NOT NULL, DEFAULT 'Uncategorized'): Denormalized product category.
-- `quantity` (INTEGER, NOT NULL): Quantity purchased.
-- `price_at_sale` (REAL, NOT NULL): Price per unit at the time of sale.
+### 2. `product_deletions`
 
-### 4. `users`
-System users (Auth/Staff accounts).
-- `id` (TEXT, PRIMARY KEY): Unique identifier.
-- `username` (TEXT, UNIQUE): Login username.
-- `password` (TEXT): Hashed password (bcrypt).
-- `name` (TEXT, NOT NULL): Display name of the user.
-- `initials` (TEXT): User initials.
-- `pin` (TEXT): Optional PIN for quick login.
-- `role` (TEXT, NOT NULL): User role (`admin` or `cashier`).
-- `status` (TEXT, NOT NULL, DEFAULT 'active'): Account status.
-- `created_at` (TEXT, NOT NULL, DEFAULT `datetime('now')`): Creation timestamp.
-- `updated_at` (TEXT, NOT NULL, DEFAULT `datetime('now')`): Last update timestamp.
-- `sync_status` (TEXT, NOT NULL, DEFAULT 'synced'): Synchronization status.
+- `id` TEXT PRIMARY KEY
+- `deleted_at` TEXT NOT NULL DEFAULT `datetime('now')`
+- `sync_status` TEXT NOT NULL DEFAULT `'pending'`
 
-### 5. `settings`
-Key-value pair settings for the application.
-- `key` (TEXT, PRIMARY KEY): Setting key (e.g., `store_name`, `store_subtitle`).
-- `value` (TEXT, NOT NULL): Setting value.
-- `updated_at` (TEXT, NOT NULL, DEFAULT `datetime('now')`): Last update timestamp.
-- `sync_status` (TEXT, NOT NULL, DEFAULT 'synced'): Synchronization status.
+### 3. `inventory_logs`
 
-### 6. `categories`
-Master list of local product categories (local-only, not synced to cloud).
-- `name` (TEXT, PRIMARY KEY): Category name (e.g., `Beverages`, `Medicine`, `Snacks`).
+- `id` TEXT PRIMARY KEY
+- `product_id` TEXT NOT NULL
+- `change_amount` INTEGER NOT NULL
+- `reason` TEXT NOT NULL
+- `reference_id` TEXT
+- `created_at` TEXT NOT NULL DEFAULT `datetime('now')`
+- `sync_status` TEXT NOT NULL DEFAULT `'pending'`
 
-### 7. `ai_conversations`
-Stores conversation sessions with the AI assistant (local-only, Admin).
-- `id` (TEXT, PRIMARY KEY): Unique identifier.
-- `title` (TEXT, NOT NULL, DEFAULT 'New Chat'): Conversation title.
-- `created_at` (TEXT, NOT NULL, DEFAULT `datetime('now')`): Creation timestamp.
-- `updated_at` (TEXT, NOT NULL, DEFAULT `datetime('now')`): Last update timestamp.
+### 4. `transactions`
 
-### 8. `ai_messages`
-Stores individual messages within an AI conversation.
-- `id` (TEXT, PRIMARY KEY): Unique message identifier.
-- `conversation_id` (TEXT, NOT NULL): Foreign key linking to `ai_conversations(id)`.
-- `role` (TEXT, NOT NULL): Message sender role (e.g., `user`, `assistant`).
-- `content` (TEXT, NOT NULL): Message content/text.
-- `is_error` (INTEGER, NOT NULL, DEFAULT 0): Flag indicating if the message represents an error (1 for true, 0 for false).
-- `created_at` (TEXT, NOT NULL, DEFAULT `datetime('now')`): Message timestamp.
+- `id` TEXT PRIMARY KEY
+- `total` REAL NOT NULL
+- `cashier` TEXT NOT NULL
+- `payment_method` TEXT NOT NULL
+- `amount_paid` REAL NOT NULL
+- `reference_number` TEXT
+- `created_at` TEXT NOT NULL DEFAULT `datetime('now')`
+- `sync_status` TEXT NOT NULL DEFAULT `'pending'`
 
-## Additional Notes
-- **Migrations & Initialization:** The database structure and default seeds (like an initial admin user and default categories) are initialized in Rust via sqlx upon app startup (`src-tauri/src/db.rs`). 
-- **Synchronization:** Tables with a `sync_status` column are designed to interface with a remote backend (Supabase) for cloud backups and multi-device data consistency.
+### 5. `transaction_items`
+
+- `id` TEXT PRIMARY KEY
+- `transaction_id` TEXT NOT NULL
+- `product_id` TEXT NOT NULL
+- `product_name` TEXT NOT NULL
+- `category` TEXT NOT NULL DEFAULT `'Uncategorized'`
+- `quantity` INTEGER NOT NULL
+- `price_at_sale` REAL NOT NULL
+
+Notes:
+
+- `transaction_id` references `transactions(id)`.
+- `product_id` is intentionally **not** enforced as a foreign key to `products`.
+
+### 6. `users`
+
+- `id` TEXT PRIMARY KEY
+- `username` TEXT UNIQUE
+- `password` TEXT
+- `name` TEXT NOT NULL
+- `initials` TEXT
+- `pin` TEXT
+- `role` TEXT NOT NULL
+- `status` TEXT NOT NULL DEFAULT `'active'`
+- `created_at` TEXT NOT NULL DEFAULT `datetime('now')`
+- `updated_at` TEXT NOT NULL DEFAULT `datetime('now')`
+- `sync_status` TEXT NOT NULL DEFAULT `'synced'`
+
+### 7. `settings`
+
+- `key` TEXT PRIMARY KEY
+- `value` TEXT NOT NULL
+- `updated_at` TEXT NOT NULL DEFAULT `datetime('now')`
+- `sync_status` TEXT NOT NULL DEFAULT `'synced'`
+
+### 8. `categories`
+
+- `name` TEXT PRIMARY KEY
+
+This table is local-only and used for category defaults plus inventory UI helpers.
+
+### 9. `ai_conversations`
+
+Admin-only local history table.
+
+- `id` TEXT PRIMARY KEY
+- `title` TEXT NOT NULL DEFAULT `'New Chat'`
+- `created_at` TEXT NOT NULL DEFAULT `datetime('now')`
+- `updated_at` TEXT NOT NULL DEFAULT `datetime('now')`
+
+### 10. `ai_messages`
+
+Admin-only local message table.
+
+- `id` TEXT PRIMARY KEY
+- `conversation_id` TEXT NOT NULL
+- `role` TEXT NOT NULL
+- `content` TEXT NOT NULL
+- `is_error` INTEGER NOT NULL DEFAULT `0`
+- `created_at` TEXT NOT NULL DEFAULT `datetime('now')`
+
+## Seeded Defaults
+
+On first initialization, the app seeds:
+
+- A default category list
+- `store_name = "My Store"`
+- `store_subtitle = ""`
+- Default Admin user if no Admin exists
+
+Default Admin credentials:
+
+- Username: `admin`
+- Password: `admin123`
+
+## Important Notes
+
+- AI config values are stored in `settings` as local-only rows and are not intended for cloud overwrite.
+- Cashier and Admin use the same logical schema, but only Admin creates the AI conversation tables.
+- Product deletion sync uses `product_deletions` tombstones instead of only relying on hard deletes.

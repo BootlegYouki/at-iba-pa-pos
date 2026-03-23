@@ -2,46 +2,44 @@
 
 ## High-Level Overview
 
-The system is built as an **offline-first desktop application** using a local-first architecture. Every terminal runs its own local database and can operate without any network connectivity. When available, data syncs — either over the local network (LAN) to the Admin, or over the internet to the cloud.
+The application is a dual-build Tauri desktop system with a shared React and Rust codebase. Every terminal keeps its own local SQLite database. Cashiers primarily communicate with the Admin over LAN, while optional Supabase sync keeps local databases backed up and aligned.
 
 ```mermaid
 graph TB
-    subgraph CashierApp["Cashier App (Tauri)"]
-        direction TB
-        CashierUI["React Frontend<br/>POS Interface"]
-        CashierRust["Rust Backend"]
-        CashierDB[("SQLite<br/>pos-cashier.db")]
+    subgraph CashierApp["Cashier POS"]
+        CashierUI["React UI"]
+        CashierRust["Rust backend"]
+        CashierDB[("SQLite")]
         CashierUI --> CashierRust
         CashierRust --> CashierDB
     end
 
-    subgraph AdminApp["Admin App (Tauri)"]
-        direction TB
-        AdminUI["React Frontend<br/>Dashboard / Inventory / Reports"]
-        AdminRust["Rust Backend"]
-        AdminDB[("SQLite<br/>pos-admin.db")]
-        WSServer["WebSocket Server<br/>:3080"]
-        UDPBeacon["UDP Beacon<br/>:3081"]
+    subgraph AdminApp["Admin IMS"]
+        AdminUI["React UI"]
+        AdminRust["Rust backend"]
+        AdminDB[("SQLite")]
+        WSServer["WebSocket server :3080"]
+        UDPBeacon["UDP beacon :3081"]
         AdminUI --> AdminRust
         AdminRust --> AdminDB
         AdminRust --> WSServer
         AdminRust --> UDPBeacon
     end
 
-    subgraph Cloud["Cloud (Supabase)"]
-        Postgres[("Postgres Database")]
-        Realtime["Realtime Engine"]
-        EdgeFn["Edge Functions"]
-        Groq["Groq AI"]
-        Postgres --> Realtime
-        EdgeFn --> Groq
+    subgraph Cloud["Optional Cloud Services"]
+        Supabase["Supabase Postgres + Realtime"]
+        Groq["Groq"]
+        Mistral["Mistral"]
+        Ollama["Local Ollama"]
     end
 
-    CashierRust -->|"LAN Sync (WebSocket)"| WSServer
-    CashierRust -.->|"Auto-discover (UDP)"| UDPBeacon
-    CashierRust -->|"Cloud Sync (HTTPS)"| Postgres
-    AdminRust -->|"Cloud Sync (HTTPS)"| Postgres
-    AdminUI -->|"AI Queries"| EdgeFn
+    CashierRust -->|"LAN sync"| WSServer
+    CashierRust -.->|"Auto-discovery"| UDPBeacon
+    AdminRust -->|"Background sync"| Supabase
+    CashierRust -->|"Background sync when LAN is not active"| Supabase
+    AdminUI -->|"AI requests"| Groq
+    AdminUI -->|"AI requests"| Mistral
+    AdminUI -->|"AI requests"| Ollama
 ```
 
 ---
@@ -49,156 +47,145 @@ graph TB
 ## Tech Stack
 
 | Layer | Technology | Purpose |
-|-------|-----------|---------|
-| **Desktop Shell** | Tauri 2.x (Rust) | Native window management, system tray, IPC, file system |
-| **Frontend** | React 18 + TypeScript | UI components, state management, routing |
-| **Build Tool** | Vite 5 | Fast HMR development, production bundling |
-| **UI Framework** | shadcn/ui + Tailwind CSS | Consistent, accessible component library |
-| **Animations** | Framer Motion | 60FPS micro-interactions and transitions |
-| **Charts** | Recharts | Sales trend visualizations, bar/line/pie charts |
-| **Local Database** | SQLite (via sqlx) | Persistent local storage, WAL mode |
-| **Cloud Database** | Supabase (Postgres) | Centralized data, Realtime subscriptions |
-| **AI Engine** | Groq Cloud | Fast LLM inference for analytics |
-| **Networking** | axum + tokio-tungstenite | WebSocket server/client for LAN sync |
-| **Discovery** | socket2 (UDP broadcast) | Automatic Admin discovery on LAN |
+|-------|------------|---------|
+| **Desktop shell** | Tauri 2.x + Rust | Native windows, IPC, store file access, file output, local networking |
+| **Frontend** | React 18 + TypeScript + Vite | App UI, routing, and client-side state |
+| **UI system** | shadcn/ui + Tailwind CSS | Reusable interface primitives |
+| **Animation** | Framer Motion | View transitions and cashier/payment animations |
+| **Charts** | Recharts | Admin dashboards and visual reports |
+| **Local database** | SQLite via `sqlx` | Durable offline storage |
+| **Cloud sync** | Supabase Postgres + Realtime broadcast | Backup, shared data, and sync triggers |
+| **LAN transport** | `axum`, `tokio-tungstenite`, UDP broadcast | Admin server, cashier client, and discovery |
+| **AI providers** | Groq, Mistral, local Ollama | Admin-only assistant models |
+| **Excel export** | `exceljs` | Configurable workbook generation |
 
 ---
 
-## Dual-App Architecture
+## Dual-App Build Strategy
 
-Both the Admin and Cashier apps are built from the **same codebase** but compiled with different configurations. The build system uses environment variables and separate Tauri config files to produce two distinct applications.
+Admin IMS and Cashier POS come from the same repository but compile into separate desktop applications with different entry points and Tauri config files.
 
 ```mermaid
 graph LR
-    subgraph Codebase["Shared Codebase"]
-        SharedLib["src/lib/<br/>Database, DAL, Types, Utils"]
-        SharedUI["src/components/ui/<br/>shadcn components"]
-        RustBackend["src-tauri/src/<br/>Rust backend modules"]
+    subgraph Shared["Shared codebase"]
+        SharedUI["src/components"]
+        SharedLib["src/lib"]
+        RustCore["src-tauri/src"]
     end
 
-    subgraph AdminBuild["Admin Build"]
-        AdminConf["admin.conf.json"]
+    subgraph Admin["Admin build"]
         AdminEntry["src/admin/main.tsx"]
-        AdminPages["Dashboard, Inventory,<br/>Reports, Transactions,<br/>Settings"]
+        AdminConfig["src-tauri/admin.conf.json"]
     end
 
-    subgraph CashierBuild["Cashier Build"]
-        CashierConf["cashier.conf.json"]
+    subgraph Cashier["Cashier build"]
         CashierEntry["src/cashier/main.tsx"]
-        CashierPages["POS, Login,<br/>Customer Display"]
+        CashierConfig["src-tauri/cashier.conf.json"]
     end
 
-    SharedLib --> AdminBuild
-    SharedLib --> CashierBuild
-    SharedUI --> AdminBuild
-    SharedUI --> CashierBuild
-    RustBackend --> AdminBuild
-    RustBackend --> CashierBuild
+    SharedUI --> Admin
+    SharedUI --> Cashier
+    SharedLib --> Admin
+    SharedLib --> Cashier
+    RustCore --> Admin
+    RustCore --> Cashier
 ```
 
-| Aspect | Admin App | Cashier App |
+| Aspect | Admin IMS | Cashier POS |
 |--------|-----------|-------------|
-| **Identifier** | `com.pos.admin` | `com.pos.cashier` |
-| **Window Title** | Admin IMS | Cashier POS |
-| **Entry Point** | `admin.html` → `src/admin/main.tsx` | `cashier.html` → `src/cashier/main.tsx` |
-| **Pages** | Dashboard, Inventory, Transactions, Reports, Settings | POS, Login, Customer Display |
-| **Network Role** | WebSocket server + UDP beacon broadcaster | WebSocket client + UDP listener |
-| **Database File** | `pos-admin.db` | `pos-cashier.db` |
-| **Cloud Sync** | Pulls products + pushes admin-received transactions | Pushes transactions + pulls products |
+| **Tauri identifier** | `com.pos.admin` | `com.pos.cashier` |
+| **Product name** | Admin IMS | Cashier POS |
+| **Frontend entry** | `src/admin/main.tsx` | `src/cashier/main.tsx` |
+| **Primary pages** | Dashboard, Inventory, Transactions, Reports, Settings | POS, Login, Customer Display |
+| **LAN role** | Server and broadcaster | Client and listener |
+| **AI availability** | Yes | No |
+| **Customer display** | No | Yes |
 
 ---
 
 ## Data Flow
 
-```mermaid
-flowchart LR
-    subgraph DataTypes["Data Flow by Type"]
-        direction TB
-        Products["📦 Products & Prices"]
-        Transactions["💰 Transactions"]
-        Stock["📊 Stock Levels"]
-    end
+The system does not treat every entity the same way. Data movement depends on the business role of the record.
 
-    subgraph Sources
-        SupabaseCloud["☁️ Supabase"]
-        AdminLocal["🖥️ Admin Local"]
-        CashierLocal["💻 Cashier Local"]
-    end
+| Data Type | Normal Source of Truth | Typical Direction |
+|-----------|------------------------|-------------------|
+| **Products** | Admin and cloud | Admin pushes changes, all apps pull updates |
+| **Transactions** | Cashier at time of sale | Cashier -> Admin over LAN, then Admin -> cloud when online |
+| **Inventory logs** | Local app that changed stock | Local -> cloud when sync runs |
+| **Users** | Admin | Admin -> cashier over LAN and cloud |
+| **Settings** | Admin, except local-only settings | Admin -> cashier and cloud; local-only settings stay local |
+| **AI conversations** | Admin local database only | No LAN or cloud sync |
 
-    SupabaseCloud -->|"Downstream"| AdminLocal
-    SupabaseCloud -->|"Downstream"| CashierLocal
-    CashierLocal -->|"Upstream"| AdminLocal
-    AdminLocal -->|"Upstream"| SupabaseCloud
-    CashierLocal -.->|"Direct (if online)"| SupabaseCloud
-```
+Two important runtime rules:
 
-| Data Type | Primary Source | Sync Direction |
-|-----------|---------------|----------------|
-| **Products / Prices** | Admin / Supabase | Supabase → Admin → Cashier (downstream) |
-| **Transactions / Sales** | Cashier | Cashier → Admin → Supabase (upstream) |
-| **Stock Levels** | Supabase (atomic) | Bidirectional across all terminals |
-| **Users / Settings** | Admin | Admin → Cashier (via LAN initial sync) |
+1. If a cashier has an active LAN connection to the Admin, it skips pushing transactions directly to cloud.
+2. AI provider settings are stored as local-only settings and are intentionally excluded from cloud overwrite behavior.
 
 ---
 
 ## IPC Boundary
 
-The React frontend never accesses the database directly. All database operations flow through a strict boundary:
+The React UI does not talk to SQLite directly. All database access crosses a Tauri IPC boundary.
 
 ```mermaid
 sequenceDiagram
-    participant UI as React Frontend
-    participant DAL as Data Access Layer
-    participant IPC as Tauri IPC (invoke)
-    participant Rust as Rust Backend
+    participant UI as React page
+    participant DAL as TypeScript DAL
+    participant IPC as Tauri invoke
+    participant Rust as Rust command
     participant DB as SQLite
 
     UI->>DAL: getAllProducts()
-    DAL->>IPC: invoke('db_query', { sql, params })
-    IPC->>Rust: Command handler
-    Rust->>DB: sqlx::query()
-    DB-->>Rust: Rows
-    Rust-->>IPC: JSON result
-    IPC-->>DAL: Parsed data
-    DAL-->>UI: Product[]
+    DAL->>IPC: invoke(...)
+    IPC->>Rust: db_query / db_execute / db_sync
+    Rust->>DB: SQL via sqlx
+    DB-->>Rust: rows
+    Rust-->>DAL: JSON result
+    DAL-->>UI: typed data
 ```
 
-The **Data Access Layer (DAL)** encapsulates all SQL queries in TypeScript functions. Pages never write raw SQL — they call DAL functions like `getAllProducts()`, `createTransaction()`, and `getDailyRevenue()`.
+This keeps SQL centralized in DAL and Rust command layers instead of scattering raw queries across pages.
 
 ---
 
-## Application Startup Sequence
+## Startup Sequence
 
 ```mermaid
 sequenceDiagram
-    participant App as Tauri App
-    participant Splash as Splash Screen
-    participant DB as SQLite Init
-    participant Sync as Cloud Sync
-    participant LAN as LAN Server/Client
-    participant Main as Main Window
+    participant App as Tauri app
+    participant Splash as Splash window
+    participant DB as SQLite init
+    participant Store as .settings.dat
+    participant Sync as Cloud sync
+    participant Main as Main window
 
-    App->>Splash: Show splash screen
-    App->>DB: Initialize SQLite (create tables, WAL mode)
-    DB-->>App: Pool ready
-    App->>Sync: Initial cloud sync (with timeout)
-    Sync-->>App: Sync complete or timeout
-    App->>Splash: Close splash (min 3s shown)
-    App->>Main: Show main window
-    
-    alt Admin Mode
-        App->>LAN: Start WebSocket server (:3080)
-        App->>LAN: Start UDP beacon (:3081)
-    else Cashier Mode
-        App->>LAN: Start WebSocket client (discover/connect)
+    App->>Splash: Show splash
+    App->>DB: Initialize local database
+    App->>Store: Read theme and saved cloud settings
+    alt Cloud credentials available
+        App->>Sync: Run initial sync during splash
     end
-    
-    App->>Sync: Start background sync loop (every 5s)
+    App->>Main: Show main window after minimum splash duration
+    App->>Sync: Start background Rust sync loop
 ```
 
-1. **Splash screen** appears with theme-aware background color
-2. **Database initializes** — creates tables if first launch, enables WAL mode
-3. **Initial sync** attempts to pull latest data from Supabase (max 10s timeout)
-4. **Splash closes** after minimum 3 seconds
-5. **LAN services start** — Admin launches WebSocket server + beacon; Cashier discovers and connects
-6. **Background sync** runs every 5 seconds, pushing local changes and pulling remote updates
+Observed runtime behavior:
+
+- Minimum splash duration is 3 seconds.
+- Initial cloud sync gets up to 10 seconds before the app continues with local data.
+- Admin starts the WebSocket server and UDP beacon after boot.
+- Cashier starts discovery/connect logic after boot.
+
+---
+
+## Supporting Storage
+
+Besides SQLite, both apps use a Tauri store file named `.settings.dat`.
+
+Typical store usage:
+
+- Theme and UI preferences
+- Saved cloud URL and encrypted committed cloud anon key
+- Pending LAN-delivered cloud credentials on cashier terminals
+
+SQLite remains the main application database. The store file is used for device-scoped configuration.

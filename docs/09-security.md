@@ -2,7 +2,14 @@
 
 ## Overview
 
-The system implements multiple layers of security to protect store data, prevent unauthorized access, and ensure safe communication between terminals and the cloud.
+The current security model is pragmatic and store-oriented:
+
+- Passwords and PINs are hashed in Rust
+- Sensitive local settings can be encrypted before storage
+- Cloud traffic uses HTTPS
+- LAN traffic is plaintext and assumes a trusted local network
+
+This is a strong operational fit for a small single-store deployment, but it is important to understand the actual trust boundaries.
 
 ---
 
@@ -10,222 +17,168 @@ The system implements multiple layers of security to protect store data, prevent
 
 ```mermaid
 flowchart TD
-    subgraph AdminAuth["Admin Authentication"]
-        AdminLogin["Username + Password"]
-        AdminHash["bcrypt hash verification<br/>(Rust backend)"]
-        AdminSession["Session stored in localStorage"]
-    end
-
-    subgraph CashierAuth["Cashier Authentication"]
-        UserSelect["Select cashier from list"]
-        PINEntry["Enter 4-6 digit PIN"]
-        PINHash["bcrypt hash verification<br/>(Rust backend)"]
-        CashierSession["Session stored in localStorage"]
-    end
-
-    AdminLogin --> AdminHash
-    AdminHash -->|"✅ Match"| AdminSession
-    
-    UserSelect --> PINEntry
-    PINEntry --> PINHash
-    PINHash -->|"✅ Match"| CashierSession
+    AdminLogin["Admin: username + password"] --> AdminVerify["Rust bcrypt verify"]
+    CashierLogin["Cashier: select user + 4-digit PIN"] --> CashierVerify["Rust bcrypt verify"]
+    AdminVerify --> AdminSession["Admin session in localStorage"]
+    CashierVerify --> CashierSession["Cashier session in localStorage"]
 ```
 
-### Role-Based Access Control (RBAC)
-
-| Role | Access | Capabilities |
-|------|--------|-------------|
-| **Admin** | Full system access | Manage inventory, view reports, configure settings, manage users, AI analytics |
-| **Cashier** | POS terminal only | Process sales, scan barcodes, view customer display |
+| Role | Access |
+|------|--------|
+| **Admin** | Inventory, reports, settings, users, AI assistant |
+| **Cashier** | POS flow and customer display only |
 
 ---
 
-## Password & PIN Hashing
+## Password and PIN Storage
 
-All passwords and PINs are hashed using **bcrypt** — a proven, slow-by-design hashing algorithm that resists brute-force attacks.
+Passwords and cashier PINs are hashed in the Rust backend using bcrypt.
 
-```mermaid
-sequenceDiagram
-    participant UI as Frontend
-    participant IPC as Tauri IPC
-    participant Rust as Rust Backend (bcrypt)
-    participant DB as SQLite
+Important facts from the current code:
 
-    Note over UI,Rust: Registration / User creation
-    UI->>IPC: invoke('hash_password', { password })
-    IPC->>Rust: bcrypt::hash(password, cost=12)
-    Rust-->>IPC: hashed_password
-    IPC-->>UI: Store hash in DB
+- Hashing is done through Tauri commands, not in browser JavaScript alone.
+- Verification also happens in Rust.
+- The code uses `bcrypt::DEFAULT_COST` rather than a hard-coded custom cost value.
 
-    Note over UI,Rust: Login / PIN verification
-    UI->>IPC: invoke('verify_password', { password, hash })
-    IPC->>Rust: bcrypt::verify(password, hash)
-    Rust-->>IPC: true / false
-    IPC-->>UI: Grant or deny access
-```
-
-### Key Points
-
-- Hashing is done **in the Rust backend**, not in JavaScript — this prevents timing attacks and leverages native performance
-- bcrypt cost factor of **12** provides strong resistance against GPU-accelerated brute-force
-- PIN hashing uses the same bcrypt flow as password hashing — even though PINs are short, bcrypt's slow hashing makes brute-force impractical
-- **No plaintext passwords or PINs are ever stored** in the database or transmitted over the network
+Nothing stores plaintext passwords or plaintext cashier PINs in SQLite.
 
 ---
 
-## API Key Security
+## Session Behavior
 
-```mermaid
-flowchart TD
-    subgraph Bad["❌ Insecure (NOT used)"]
-        ClientKey["API key embedded<br/>in desktop app"]
-        ClientKey -->|"Extractable from binary"| Attacker["Malicious actor"]
-    end
+Admin and cashier sessions are stored in `localStorage`, but the apps intentionally clear stale sessions on startup.
 
-    subgraph Good["✅ Secure (Used)"]
-        EdgeFn["Supabase Edge Function<br/>holds API key as env var"]
-        App["Desktop app"]
-        App -->|"Authenticated request<br/>(session token)"| EdgeFn
-        EdgeFn -->|"Forward with API key"| Groq["Groq Cloud"]
-    end
-```
+Operational effect:
 
-### Supabase Keys
-
-| Key Type | Storage | Purpose |
-|----------|---------|---------|
-| **Supabase anon key** | Tauri Store (`.settings.dat`) — configured at runtime via Settings UI | Public key for Supabase client — safe to store locally (RLS protects data) |
-| **Supabase URL** | Tauri Store (`.settings.dat`) — configured at runtime via Settings UI | Each store owner's own Supabase project URL |
-| **Supabase service key** | Never in client | Server-side only — used in Edge Functions |
-| **Groq API key** | Supabase Edge Function env var | Never touches the client application |
-
-> **Note:** Supabase credentials are **not compiled into the binary**. There is no `.env` file or `env!()` macro embedding. Each store owner configures their own isolated Supabase project through the Settings UI, and credentials are stored in the Tauri Store (`.settings.dat` JSON file in the app data directory). If no credentials are set, the app runs in fully offline mode.
-
-The Supabase `anon` key is intentionally public — all data access is controlled by **Row Level Security (RLS)** policies on the database. Since each store owner runs their own isolated Supabase project, RLS policies use `USING (true)` for simplicity — the anon key is scoped to their project only.
+- Force-close or crash does not preserve the last authenticated session across restart.
+- Cashier terminals also auto-logout after 15 minutes of inactivity.
 
 ---
 
-## Supabase Row Level Security (RLS)
+## Local Secret Handling
 
-RLS policies on the Supabase Postgres database ensure that even if someone obtains the `anon` key, they can only access data they're authorized to see.
+Some secrets are encrypted before storage using AES-256-GCM.
 
-```mermaid
-flowchart TD
-    Request["API Request<br/>(with anon key)"]
-    Request --> RLS["Row Level Security<br/>Policy Check"]
-    
-    RLS -->|"Policy allows"| Data["Return rows"]
-    RLS -->|"Policy denies"| Empty["Return empty / error"]
-```
+Current encrypted-at-rest examples:
 
-### Policy Examples
+| Secret | Storage location |
+|--------|------------------|
+| Hosted AI provider keys | SQLite `settings` table |
+| Committed Supabase anon key | Tauri store `.settings.dat` |
 
-| Table | Policy | Effect |
-|-------|--------|--------|
-| `products` | SELECT for authenticated users | Only logged-in users can read products |
-| `transactions` | INSERT for authenticated users | Only logged-in users can create transactions |
-| `users` | SELECT for authenticated, restricted fields | Users can only see non-sensitive fields |
+The encryption key is an **app-level compiled key** in the Rust codebase.
+
+What that means in practice:
+
+- It protects against casual local file inspection.
+- It is not equivalent to hardware-backed secret storage.
+- A determined attacker with local machine access and reverse-engineering ability should still be treated as in-scope risk.
 
 ---
 
-## Local Network Security
+## Pending Cashier Cloud Credentials
+
+There is one important special case:
+
+- When the Admin pushes cloud credentials to a cashier over LAN, the cashier stores them first as pending auto credentials.
+- Those pending values exist so the cashier UI can later promote them into committed cloud config.
+
+This is convenient for operations, but it is not the same as a dedicated secret-distribution system.
+
+---
+
+## Cloud Security Model
+
+Supabase credentials are configured at runtime, not baked into the binary.
+
+Current model:
+
+- `supabaseUrl` and anon key are entered through Admin Settings
+- The generated setup SQL enables permissive anon-role RLS policies so the app can operate against that project
+- Each deployment is expected to use its own isolated Supabase project
+
+Operational implication:
+
+- Protection depends heavily on controlling the store's Supabase project and anon key
+- The current default SQL is convenience-oriented, not a high-isolation multi-tenant design
+
+---
+
+## AI Provider Boundary
+
+Hosted AI requests go directly from the Admin app to the selected provider.
 
 ```mermaid
 flowchart LR
-    subgraph LAN["Local Area Network"]
-        Admin["Admin App<br/>(WebSocket Server)"]
-        Cashier["Cashier App<br/>(WebSocket Client)"]
-        Cashier -->|"ws:// (unencrypted)"| Admin
-    end
-
-    subgraph WAN["Internet"]
-        Supabase["Supabase<br/>(HTTPS/TLS)"]
-    end
-
-    Admin -->|"https:// (encrypted)"| Supabase
-    Cashier -->|"https:// (encrypted)"| Supabase
+    Admin["Admin app"] --> Groq["Groq"]
+    Admin --> Mistral["Mistral"]
+    Admin --> Ollama["Local Ollama"]
 ```
 
-### LAN Communication
+Important implication:
 
-| Aspect | Detail |
-|--------|--------|
-| **Protocol** | `ws://` (WebSocket, unencrypted) |
-| **Encryption** | None — plaintext on LAN |
-| **Justification** | Closed LAN environment in a single store; TLS would require local certificate management |
-| **Mitigation** | Admin rejects connections from outside the local subnet |
-| **Ports** | TCP 3080 (WebSocket), UDP 3081 (discovery beacon) |
-
-### Cloud Communication
-
-| Aspect | Detail |
-|--------|--------|
-| **Protocol** | `https://` (TLS encrypted) |
-| **Authentication** | Supabase session tokens + RLS |
-| **Data in transit** | Fully encrypted |
+- There is no server-side proxy hiding Groq or Mistral API keys from the Admin workstation itself.
+- Prompt contents are sent to the hosted provider when using Groq or Mistral.
+- Ollama is the fully local option.
 
 ---
 
-## Session Management
+## Network Security
 
-### Cashier Auto-Logout
-
-The Cashier app implements an **auto-logout timer** to prevent unauthorized access when a cashier walks away:
-
-```mermaid
-flowchart TD
-    Login["Cashier logs in"]
-    Login --> Timer["Start inactivity timer"]
-    
-    Timer --> Activity{"User activity<br/>detected?"}
-    Activity -->|Yes| Reset["Reset timer"]
-    Reset --> Timer
-    
-    Activity -->|"No activity for X minutes"| Logout["Auto-logout"]
-    Logout --> Lock["Return to login screen"]
-```
-
-### Session Storage
-
-| Data | Storage Location | Lifetime |
-|------|-----------------|----------|
-| Cashier session | `localStorage` | Until logout or auto-logout |
-| Admin session | `localStorage` | Until logout |
-| Theme preference | Tauri Store (`.settings.dat`) | Persistent across sessions |
-
----
-
-## Data Protection
-
-### At Rest
-
-| Data | Protection |
-|------|-----------|
-| **Local SQLite** | Stored in `%APPDATA%` — protected by Windows user account |
-| **Passwords/PINs** | bcrypt hashed — irreversible |
-| **Cloud credentials (Cashier)** | AES-256-GCM encrypted in Tauri Store — machine-derived key |
-| **Cloud Postgres** | Supabase managed encryption at rest |
-| **Backup** | Cloud sync provides automatic backup |
-
-### In Transit
+### Cloud traffic
 
 | Path | Protection |
-|------|-----------|
-| **App ↔ Supabase** | TLS (HTTPS) |
-| **App ↔ App (LAN)** | Unencrypted WebSocket (closed network) — cloud credentials sent as `CloudCredentials` message are encrypted at rest on arrival |
-| **App ↔ Groq** | Via Edge Function (TLS) — app never connects directly |
+|------|------------|
+| App <-> Supabase | HTTPS / TLS |
+| Admin <-> hosted AI provider | HTTPS / TLS |
+
+### LAN traffic
+
+| Path | Protection |
+|------|------------|
+| Cashier <-> Admin WebSocket | Plaintext on trusted LAN |
+| UDP discovery beacon | Plaintext broadcast on trusted LAN |
+
+There is currently:
+
+- No TLS on LAN sync
+- No mutual certificate authentication on LAN sync
+- No extra peer identity layer beyond the local network model
+
+Use LAN sync only on trusted in-store networks.
 
 ---
 
-## Threat Model Summary
+## Data Protection Summary
 
-| Threat | Mitigation |
-|--------|-----------|
-| **Brute-force PIN/password** | bcrypt with cost 12 — each attempt takes ~250ms |
-| **API key theft** | Keys stored server-side in Edge Functions, not in client binary |
-| **Cloud cred interception (LAN)** | LAN is a closed network; credentials are AES-256-GCM encrypted at rest on cashier |
-| **Unauthorized LAN access** | Admin restricts connections to local subnet |
-| **Data loss (hardware failure)** | Cloud sync provides automatic backup to Supabase |
-| **Unauthorized access (walkaway)** | Auto-logout timer on cashier terminals |
-| **SQL injection** | Parameterized queries via sqlx — no string concatenation |
-| **XSS** | React's default escaping + no `dangerouslySetInnerHTML` usage |
+| Data | Current protection |
+|------|--------------------|
+| User passwords and PINs | bcrypt hashes |
+| Local SQLite files | Windows account and filesystem protection |
+| AI provider keys | AES-encrypted before local storage |
+| Committed cloud anon key | AES-encrypted before Tauri store write |
+| Cloud data in transit | TLS |
+| LAN sync data in transit | Plaintext LAN transport |
+
+---
+
+## Query Safety
+
+The app avoids raw string-built SQL in pages and uses DAL plus `sqlx`-backed parameterized patterns for database interaction.
+
+This reduces common injection risk compared with ad-hoc query concatenation.
+
+---
+
+## Threat Summary
+
+| Threat | Current mitigation |
+|--------|--------------------|
+| Brute-force login attempts | bcrypt hashing |
+| Walk-away cashier session | Fixed 15-minute auto logout |
+| Casual local inspection of stored keys | AES-encrypted stored secrets |
+| Internet eavesdropping | HTTPS/TLS |
+| Duplicate cloud transaction pushes | LAN/cloud flow separation plus sync state rules |
+| LAN snooping on an untrusted network | Not mitigated by TLS in current design |
+
+The biggest practical caveat is the LAN assumption: the current system is designed for trusted in-store networks, not hostile shared networks.
