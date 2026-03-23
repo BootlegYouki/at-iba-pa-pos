@@ -79,7 +79,7 @@ graph LR
 
 | Message | Direction | Purpose |
 |---------|-----------|---------|
-| `TxnSync` | Cashier -> Admin | Send completed transaction plus line items |
+| `TxnSync` | Cashier -> Admin | Send completed transaction, line items, and original inventory logs |
 | `TxnAck` | Admin -> Cashier | Confirm Admin accepted the transaction |
 | `StockUpdate` | Admin -> Cashier | Push updated product stock snapshot |
 | `InitialSyncRequest` | Cashier -> Admin | Request a fresh users/products/settings snapshot |
@@ -179,8 +179,10 @@ sequenceDiagram
     participant Admin as Admin IMS
 
     Cashier->>Cashier: Save sale locally as pending
+    Cashier->>Cashier: Create inventory logs for sold lines
     Cashier->>Admin: TxnSync
-    Admin->>Admin: Insert transaction locally
+    Admin->>Admin: Insert transaction and preserve original inventory log IDs
+    Admin->>Admin: Emit db-changed and refresh LAN snapshots
     Admin-->>Cashier: TxnAck
     Cashier->>Cashier: Mark local transaction as synced
 ```
@@ -190,6 +192,8 @@ Why this matters:
 - Cashier gets a fast acknowledgment from the Admin.
 - Admin becomes responsible for forwarding that transaction to cloud later.
 - Cashier avoids double-pushing the same LAN-delivered transaction.
+- Inventory log identifiers stay stable across cashier -> Admin -> cloud flow, so retries do not double-apply stock.
+- Other connected cashier terminals can see stock refresh sooner because the Admin emits a fresh database-change event as soon as the sale is accepted.
 
 ---
 
@@ -198,6 +202,8 @@ Why this matters:
 The Admin also reacts to local database changes by broadcasting fresh users/settings/products snapshots to connected cashiers.
 
 That means cashier terminals do not rely only on first-connect sync. They also receive follow-up LAN updates when the Admin changes operational data.
+
+This also applies immediately after the Admin accepts a LAN sale, so stock-sensitive cashier screens do not have to wait for an unrelated later sync cycle.
 
 ---
 

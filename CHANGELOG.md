@@ -4,6 +4,37 @@ All notable changes to the AT-IBA-PA MINIMART POS system will be documented in t
 
 ---
 
+## [1.3.1] - 2026-03-23
+
+### Changed
+
+**Sync Integrity and Stock Consistency**
+- Cashier and Admin can both push sales to Supabase when appropriate, but the routing stays role-aware:
+  - Cashier pushes transactions and inventory logs directly only when LAN is not active
+  - Admin remains the single upstream source for LAN-delivered sales
+- Cloud stock is now derived from `inventory_logs` through a Supabase SQL trigger instead of relying on product stock pushes from sale sync
+- Users and shared settings now respect `updated_at` freshness when pulling from cloud, preventing older cloud rows from overwriting newer local edits
+- Frontend Supabase client lifecycle was hardened so restart, connect, disconnect, and reconnect flows rebind listeners correctly
+
+### Fixed
+
+**LAN + Cloud Mixed-Mode Duplication**
+- LAN-delivered sales now preserve their original inventory log identifiers all the way to the Admin and cloud sync layer
+- This keeps mixed LAN/cloud retries idempotent and prevents duplicate inventory log creation for the same sale
+- Stock in Supabase is now reduced exactly once per accepted inventory log instead of drifting through duplicate sale propagation
+
+**Immediate LAN Stock Refresh**
+- When the Admin accepts a cashier sale over LAN, it now emits a fresh database-change event immediately
+- Other connected cashier terminals can refresh stock sooner instead of waiting for an unrelated later sync
+
+### Documentation
+- Updated [Database & Data Layer](docs/03-database.md) to describe inventory logs as the cloud stock event source
+- Updated [Local Network Sync](docs/04-networking.md) with the full LAN sale payload and immediate stock refresh behavior
+- Updated [Cloud Sync](docs/05-cloud-sync.md) with trigger-based stock synchronization, idempotent sale flow, and freshness safeguards
+- Updated [User Guide](docs/10-user-guide.md) with the current cashier/Admin cloud behavior for LAN and non-LAN setups
+
+---
+
 ## [1.3.0] — 2026-03-19
 
 ### ✨ Added

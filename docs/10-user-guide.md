@@ -260,6 +260,12 @@ Cashier behavior after Admin shares cloud credentials:
 - Cashier Settings shows a **Ready** cloud state
 - Cashier can activate that cloud configuration from the settings dialog
 
+Current sale-routing behavior:
+
+- If the cashier is connected to the Admin over LAN, the Admin remains the cloud upstream for that sale.
+- If the cashier is not connected to the Admin over LAN but cloud is connected, the cashier can push its own sale directly to cloud.
+- In both cases, local checkout still completes immediately using SQLite first.
+
 ---
 
 ## Troubleshooting
@@ -291,6 +297,8 @@ Check the cashier cloud panel:
 
 If it only shows Ready, connect it from Cashier Settings.
 
+After a cashier activates cloud sync, future app restarts should reconnect automatically without re-entering the credentials.
+
 ### Products are missing on cashier
 
 | Check | What to do |
@@ -298,6 +306,15 @@ If it only shows Ready, connect it from Cashier Settings.
 | LAN connected? | Verify cashier is connected to Admin |
 | Initial sync completed? | Wait a moment or reconnect |
 | Product active? | Archived products are not part of the normal active cashier catalog |
+
+### Cloud stock looks wrong
+
+Check these first:
+
+- The Supabase setup SQL or migration must include the `inventory_logs` stock trigger
+- The sale should exist only once in `transactions`
+- The related `inventory_logs` rows should exist only once per sold line
+- If LAN was active, confirm the Admin is the terminal that eventually pushed the sale upstream
 
 ### Resetting local data
 

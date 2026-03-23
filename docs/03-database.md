@@ -161,6 +161,11 @@ Audit-style record of stock changes.
 | `reference_id` | Optional related record |
 | `sync_status` | Pending or synced status for cloud flow |
 
+Important operational detail:
+
+- `inventory_logs` are the canonical stock event stream for cloud reconciliation.
+- For LAN-delivered sales, the Admin preserves the original log identifiers from the cashier so cloud retries stay idempotent.
+
 ### `transactions`
 
 Header row for each completed sale.
@@ -284,13 +289,15 @@ flowchart TD
     Sale --> WriteTxn["Insert transaction header"]
     WriteTxn --> WriteItems["Insert transaction items"]
     WriteItems --> Deduct["Update products.stock locally"]
-    Deduct --> Log["Queue sync work"]
+    Deduct --> Log["Create inventory_logs + queue sync work"]
+    Log --> Trigger["Supabase inventory_logs trigger updates cloud products.stock"]
 ```
 
 Key detail:
 
-- The current system does **not** rely on a Supabase stock trigger.
-- Instead, local stock changes are reflected to cloud through normal product and inventory-log sync behavior.
+- Local SQLite remains responsible for the instant stock deduction that the cashier or Admin sees immediately.
+- Supabase now applies cloud-side stock changes from incoming `inventory_logs` through a trigger.
+- Sale sync no longer relies on pushing product stock as the authoritative stock mutation for cloud sales.
 
 ---
 

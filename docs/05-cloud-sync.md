@@ -53,6 +53,11 @@ The generated SQL currently creates:
 - `settings`
 - `inventory_logs`
 
+The setup SQL also creates the stock-application trigger used by cloud sales:
+
+- `apply_inventory_log_to_product_stock()`
+- `trg_apply_inventory_log_to_product_stock`
+
 It also enables permissive RLS policies for the anon role so the app can operate with the configured anon key.
 
 ---
@@ -131,6 +136,7 @@ Push behavior depends on app role and LAN state.
 Important rule:
 
 - If a cashier is connected to the Admin over LAN, it skips direct cloud pushes for transactions and inventory logs so the Admin stays the single upstream source for those sales.
+- Stock changes from sales are no longer treated as authoritative product-row pushes. The authoritative cloud stock mutation is the synced `inventory_logs` insert.
 
 ---
 
@@ -148,7 +154,8 @@ Both apps pull the same main entity sets from cloud:
 Pull safeguards in the current implementation:
 
 - Products only overwrite local rows when the local row is not `pending` and the incoming `updated_at` is newer.
-- Settings skip overwrite when local `sync_status` is `pending` or `local`.
+- Users only overwrite local rows when the incoming `updated_at` is newer than the local row.
+- Settings skip overwrite when local `sync_status` is `pending` or `local`, and also require the incoming `updated_at` to be newer.
 - LAN-originated synced rows are naturally protected from cloud deletion cleanup because cleanup only targets cloud-synced rows.
 
 ---
@@ -172,23 +179,26 @@ This keeps pull behavior predictable and avoids heavy server-side JSON aggregati
 
 ## Stock Synchronization
 
-The current system does **not** use a cloud-side stock trigger.
+Cloud stock is now driven by `inventory_logs`, not by pushing product stock as part of sale sync.
 
-Instead, stock is handled this way:
+Current flow:
 
 ```mermaid
 flowchart TD
     Sale["Sale completed locally"]
     Sale --> LocalStock["SQLite deducts product stock immediately"]
-    LocalStock --> Pending["Pending transaction + inventory state queued"]
-    Pending --> Push["Cloud sync pushes transactions, inventory logs, and product state"]
+    LocalStock --> Pending["Pending transaction + inventory_logs queued"]
+    Pending --> Push["Cloud sync pushes transaction + inventory_logs"]
+    Push --> Trigger["Supabase trigger updates products.stock once"]
+    Trigger --> Pull["Apps pull refreshed product rows from cloud"]
 ```
 
-Why there is no Supabase trigger:
+Why this model is used:
 
-- Local SQLite already deducts stock at sale time.
-- Pushing updated product rows later keeps cloud aligned.
-- A second deduction on cloud insert would double-decrement stock.
+- Local SQLite still gives instant in-store stock feedback at sale time.
+- The cloud trigger makes Supabase stock deterministic from accepted inventory events.
+- Mixed LAN + cloud retries remain safe because the same sale keeps the same inventory log identifiers upstream.
+- This avoids double-decrement behavior that can happen when both LAN and direct cloud paths race the same stock change.
 
 ---
 
@@ -241,6 +251,7 @@ The current design keeps most conflict cases simple:
 | Products | Prefer newer cloud row unless local row is still pending |
 | Settings | Preserve local-only settings and pending local edits |
 | Users | Admin-managed rows flow downstream and upstream through sync status rules |
+| Inventory logs | Stable IDs and reference IDs keep retries idempotent |
 | Deletions | Use tombstones or deletion cleanup against synced rows |
 
 ---
@@ -253,3 +264,4 @@ Cloud sync is designed to be:
 - Background-only
 - Safe to ignore during checkout
 - Coordinated with LAN behavior so cashiers do not race the Admin
+- Deterministic for stock because cloud product stock is derived from accepted inventory log events
