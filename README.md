@@ -45,7 +45,7 @@
 | **Customer display** | Dedicated second-screen experience showing live cart, payment state, and receipt QR code |
 | **Digital receipts** | Receipts are encoded into a QR URL that customers can open on their phones |
 | **Reports and exports** | Admin dashboards, transaction history, and configurable XLSX workbook exports |
-| **Admin AI assistant** | Sidebar assistant with Groq, Mistral, or local Ollama models, saved conversations, and file attachments |
+| **Admin AI assistant** | Sidebar assistant with Groq, Mistral, or local Ollama models, saved conversations, verified admin help, structured file attachments, spreadsheet import preview, and chat-delivered report exports |
 | **Desktop-native packaging** | Tauri-based Windows apps with separate Admin IMS and Cashier POS builds |
 
 ---
@@ -117,7 +117,7 @@ For multi-terminal setups:
 | 5 | [Cloud Sync](docs/05-cloud-sync.md) | Runtime Supabase configuration, sync loop, and offline/cloud behavior |
 | 6 | [Barcode Scanner](docs/06-barcode-scanner.md) | Scanner heuristics, multiplier syntax, and input handling |
 | 7 | [Customer Display & Receipts](docs/07-customer-display.md) | Customer-facing window, QR receipts, and receipt display flow |
-| 8 | [AI Analytics](docs/08-ai-analytics.md) | Admin AI sidebar, provider options, conversations, and attachments |
+| 8 | [AI Analytics](docs/08-ai-analytics.md) | Admin AI sidebar, provider options, verified help, conversations, attachments, spreadsheet import preview, and chat exports |
 | 9 | [Security](docs/09-security.md) | Authentication, hashing, encryption boundaries, and transport assumptions |
 | 10 | [User Guide](docs/10-user-guide.md) | Setup, cashier workflow, admin workflow, and troubleshooting |
 | 11 | [Performance](docs/11-performance.md) | SQLite tuning, batching, pagination, and runtime considerations |

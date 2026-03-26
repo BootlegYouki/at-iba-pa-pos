@@ -209,7 +209,10 @@ Admin-only AI features include:
 
 - Groq, Mistral, or local Ollama provider selection
 - Saved conversation history
-- File attachments
+- File attachments with local extraction for supported formats
+- Verified admin help answers based on curated local docs
+- Spreadsheet import preview before confirmed inventory writes
+- Report export files returned directly in the chat during AI-assisted export flows
 - Fullscreen sidebar mode
 
 ### Settings
