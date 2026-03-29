@@ -29,7 +29,7 @@ The current implementation sends provider requests directly from the Admin app. 
 |----------|-------|
 | **Groq** | Default hosted provider |
 | **Mistral** | Hosted provider with its own model list |
-| **Local Ollama** | Runs on `localhost:11434`, no hosted API key required |
+| **Local Ollama** | Runs on `localhost:11434`, no hosted API key required, with guided setup from Admin Settings |
 
 Default model:
 
@@ -64,6 +64,33 @@ The sidebar and settings screen can:
 - Switch between Groq, Mistral, and local Ollama
 - Fetch available models from the active provider
 - Persist the chosen model locally
+
+### 1.1 Guided local Ollama setup
+
+When **Local Ollama** is selected, the Admin Settings flow can:
+
+- check whether Ollama is already available
+- offer a managed lightweight install when Ollama is missing
+- open the required sign-in step when Ollama Cloud access is needed
+- re-check service availability after install startup
+
+Managed install behavior on Windows:
+
+- installs into the app's local data directory instead of requiring a full desktop app install
+- starts `ollama serve` in the background after extraction
+- writes install progress and failure details into a managed log file
+
+Current managed install paths:
+
+- install directory: `%APPDATA%\com.pos.admin\tools\ollama-cli`
+- install log: `%APPDATA%\com.pos.admin\tools\ollama-cli\install.log`
+
+The progress UI is stage-aware. It reflects installer log milestones such as:
+
+- launching installer
+- downloading standalone zip
+- extracting zip
+- starting Ollama service
 
 ### 2. Persistent conversation history
 
@@ -189,7 +216,7 @@ For inventory-changing import flows, the assistant should ask for a clear confir
 |---------|------------------|
 | Hosted API keys | Encrypted before local storage |
 | Conversation history | Stored locally in SQLite |
-| Local Ollama | Runs on-device without hosted API keys |
+| Local Ollama | Runs on-device without hosted API keys; managed install and service startup stay local to the machine |
 | Hosted provider privacy | Prompt content is sent to the selected hosted provider when Groq or Mistral is used |
 
 If the operator wants no hosted provider exposure, local Ollama is the on-device option.

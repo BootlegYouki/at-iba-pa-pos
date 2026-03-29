@@ -208,6 +208,7 @@ The export screen supports:
 Admin-only AI features include:
 
 - Groq, Mistral, or local Ollama provider selection
+- Guided local Ollama install and setup flow from Settings
 - Saved conversation history
 - File attachments with local extraction for supported formats
 - Verified admin help answers based on curated local docs
@@ -227,6 +228,26 @@ Key settings areas:
 | Cloud sync | Supabase connection and setup SQL |
 | Backup / reset | Local data export, restore, and reset tools |
 | AI | Provider, key, and model selection |
+
+### Local Ollama setup
+
+If you choose **Local Ollama** in Admin Settings:
+
+1. Open **Settings**
+2. Go to the **AI** section
+3. Select **Local Ollama**
+4. Use **Verify**
+5. If Ollama is missing, confirm the guided install step
+6. Wait for the installer to finish downloading, extracting, and starting the local Ollama service
+7. If prompted for sign-in, complete that step and return to the app for verification
+
+Managed install files are stored under:
+
+- `%APPDATA%\com.pos.admin\tools\ollama-cli`
+
+If setup fails, check:
+
+- `%APPDATA%\com.pos.admin\tools\ollama-cli\install.log`
 
 ---
 
@@ -301,6 +322,20 @@ Check the cashier cloud panel:
 If it only shows Ready, connect it from Cashier Settings.
 
 After a cashier activates cloud sync, future app restarts should reconnect automatically without re-entering the credentials.
+
+### Local Ollama setup does not finish
+
+Check these first:
+
+- The install log at `%APPDATA%\com.pos.admin\tools\ollama-cli\install.log`
+- Whether the log stopped during download, extraction, or service startup
+- Whether the machine has enough disk space for the temporary standalone zip and extracted files
+- Whether a previous half-finished install left behind partial files in `%APPDATA%\com.pos.admin\tools\ollama-cli`
+
+If needed:
+
+- retry the guided install from Admin Settings
+- avoid launching multiple install attempts at the same time
 
 ### Products are missing on cashier
 

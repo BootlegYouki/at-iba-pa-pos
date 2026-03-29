@@ -45,7 +45,7 @@
 | **Customer display** | Dedicated second-screen experience showing live cart, payment state, and receipt QR code |
 | **Digital receipts** | Receipts are encoded into a QR URL that customers can open on their phones |
 | **Reports and exports** | Admin dashboards, transaction history, and configurable XLSX workbook exports |
-| **Admin AI assistant** | Sidebar assistant with Groq, Mistral, or local Ollama models, saved conversations, verified admin help, structured file attachments, spreadsheet import preview, and chat-delivered report exports |
+| **Admin AI assistant** | Sidebar assistant with Groq, Mistral, or local Ollama models, guided Ollama setup, saved conversations, verified admin help, structured file attachments, spreadsheet import preview, and chat-delivered report exports |
 | **Desktop-native packaging** | Tauri-based Windows apps with separate Admin IMS and Cashier POS builds |
 
 ---

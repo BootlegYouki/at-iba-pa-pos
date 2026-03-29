@@ -4,6 +4,42 @@ All notable changes to the AT-IBA-PA MINIMART POS system will be documented in t
 
 ---
 
+## [1.3.2] - 2026-03-29
+
+### Added
+
+**Guided Ollama Setup and Install Telemetry**
+- Admin Settings now includes a clearer guided setup flow for **Local Ollama**
+- The app can start a lightweight standalone Ollama install in the background instead of assuming Ollama is already installed
+- Install progress is now driven by staged installer log output:
+  - launching installer
+  - download
+  - extraction
+  - `ollama serve` startup
+- The installer writes progress and failure information to the managed install log for easier troubleshooting
+
+### Changed
+
+**Smoother Ollama Setup UX**
+- The local AI setup dialog now uses stage-aware progress behavior instead of only jumping between a few fixed percentages
+- Long-running stages can advance gradually and then hold near the end of that stage until the next installer event is confirmed
+- Local AI verification and retry flow was tightened so the app can re-check Ollama service availability after install and startup events
+
+### Fixed
+
+**Background Terminal Flashing During Ollama Checks**
+- Windows background command probes used for Ollama setup and status checks now run without opening visible console windows
+- Managed install retries are safer:
+  - stale installer locks are handled more cleanly
+  - partial downloads are cleaned before retry
+  - duplicate installer launches are avoided
+
+### Documentation
+- Updated [AI Analytics](docs/08-ai-analytics.md) with guided local Ollama setup behavior, managed install logging, and local runtime notes
+- Updated [User Guide](docs/10-user-guide.md) with local AI setup and troubleshooting details for managed Ollama installs
+
+---
+
 ## [1.3.1] - 2026-03-23
 
 ### Changed
