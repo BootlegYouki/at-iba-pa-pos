@@ -28,8 +28,6 @@ graph TB
 
     subgraph Cloud["Optional Cloud Services"]
         Supabase["Supabase Postgres + Realtime"]
-        Groq["Groq"]
-        Mistral["Mistral"]
         Ollama["Local Ollama"]
     end
 
@@ -37,8 +35,6 @@ graph TB
     CashierRust -.->|"Auto-discovery"| UDPBeacon
     AdminRust -->|"Background sync"| Supabase
     CashierRust -->|"Background sync when LAN is not active"| Supabase
-    AdminUI -->|"AI requests"| Groq
-    AdminUI -->|"AI requests"| Mistral
     AdminUI -->|"AI requests"| Ollama
 ```
 
@@ -56,7 +52,7 @@ graph TB
 | **Local database** | SQLite via `sqlx` | Durable offline storage |
 | **Cloud sync** | Supabase Postgres + Realtime broadcast | Backup, shared data, and sync triggers |
 | **LAN transport** | `axum`, `tokio-tungstenite`, UDP broadcast | Admin server, cashier client, and discovery |
-| **AI providers** | Groq, Mistral, local Ollama | Admin-only assistant models |
+| **AI providers** | Local Ollama | Admin-only assistant models |
 | **Excel export** | `exceljs` | Configurable workbook generation |
 
 ---

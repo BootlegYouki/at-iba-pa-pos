@@ -69,7 +69,7 @@ graph TD
     I2 -->|"Fast JOIN for line items"| TXN["Transaction Detail"]
     I3 -->|"Date-range sort & filter"| Reports["Reports & Transactions"]
     I4 -->|"Find pending sync items"| Sync["Sync Engine"]
-    I5 -->|"Conversation lookups"| AI["AI Analytics"]
+    I5 -->|"Conversation lookups"| AI["AI Agent"]
 ```
 
 | Index | Table(Column) | Purpose |

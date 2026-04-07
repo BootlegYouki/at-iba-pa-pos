@@ -37,7 +37,7 @@ Data locations:
 | Storage | 200 MB free |
 | Display | 1280 x 720 |
 | Network | LAN for multi-terminal use |
-| Internet | Optional for cloud sync and hosted AI |
+| Internet | Optional for cloud sync and optional Ollama cloud sign-in |
 | Scanner | USB HID barcode scanner |
 
 ---
@@ -207,7 +207,7 @@ The export screen supports:
 
 Admin-only AI features include:
 
-- Groq, Mistral, or local Ollama provider selection
+- Dedicated local Ollama AI model integration
 - Guided local Ollama install and setup flow from Settings
 - Saved conversation history
 - File attachments with local extraction for supported formats
@@ -225,18 +225,17 @@ Key settings areas:
 | Store settings | Store name and related display values |
 | Theme | Light, dark, or system behavior |
 | User management | Admin and cashier accounts |
-| Cloud sync | Supabase connection and setup SQL |
+| Cloud sync | Supabase OAuth connection and automated database provisioning |
 | Backup / reset | Local data export, restore, and reset tools |
-| AI | Provider, key, and model selection |
+| AI | Local Ollama setup and model selection |
 
-### Local Ollama setup
+### AI Setup
 
-If you choose **Local Ollama** in Admin Settings:
+Because the system uses an exclusively managed Ollama instance securely on-device:
 
 1. Open **Settings**
 2. Go to the **AI** section
-3. Select **Local Ollama**
-4. Use **Verify**
+3. Use **Verify**
 5. If Ollama is missing, confirm the guided install step
 6. Wait for the installer to finish downloading, extracting, and starting the local Ollama service
 7. If prompted for sign-in, complete that step and return to the app for verification
@@ -349,7 +348,7 @@ If needed:
 
 Check these first:
 
-- The Supabase setup SQL or migration must include the `inventory_logs` stock trigger
+- The automated provisioning step or migration must successfully run the `inventory_logs` stock trigger
 - The sale should exist only once in `transactions`
 - The related `inventory_logs` rows should exist only once per sold line
 - If LAN was active, confirm the Admin is the terminal that eventually pushed the sale upstream

@@ -4,6 +4,38 @@ All notable changes to the AT-IBA-PA MINIMART POS system will be documented in t
 
 ---
 
+## [2.1.4] - 2026-04-07
+
+### Added
+
+**Automated Cloud Provisioning & Vercel Gateway**
+- Transitioned to a 100% automated, token-based Supabase project provisioning workflow.
+- Introduced a standalone Supabase OAuth broker hosted on Vercel, utilizing localhost loopback for seamless token handoff.
+- Added intelligent project discovery, continuous connection polling, and automated layout schema installation routines.
+
+**Sync Conflict Fix & Database Identity checks**
+- Real-time cloud database size and entity footprint calculations within Admin Settings UI.
+- Strict Database Identity synchronization check via `system_instance_id` to prevent accidental cross-pollution.
+- Sync engine automatically pauses and prompts users for resolution ("Keep Local" vs "Keep Cloud") when it encounters unmatched dataset identities, optionally auto-populating if cloud is bootstrap-empty.
+
+**Auto Update System**
+- Integrated `@tauri-apps/plugin-updater` with seamless update detection.
+- Provides UI integration through `UpdaterStatusBadge` mapped to Github releases or respective update endpoint servers.
+
+**Admin Mobile App**
+- Added an experimental Vite+React mobile web interface (`mobile-app` directory) tailored for administrative overview and controls on-the-go.
+
+### Changed
+
+**AI Assist Diagnostics & Setup Enhancements**
+- Managed Ollama installer on Windows now incorporates robust PID tracking and process checks for the background service.
+- New single-click uninstall animation and real-time status refresh logic in the AI configuration card.
+
+**Admin - Cashier Sync Connectivity**
+- Improved resilience on LAN sync routing and cloud sync coordination. Cashier nodes dynamically determine direct or delegated cloud sync pushes based on explicit active LAN state to eliminate cross-duplicate tracking.
+
+---
+
 ## [1.3.2] - 2026-03-29
 
 ### Added
@@ -35,7 +67,7 @@ All notable changes to the AT-IBA-PA MINIMART POS system will be documented in t
   - duplicate installer launches are avoided
 
 ### Documentation
-- Updated [AI Analytics](docs/08-ai-analytics.md) with guided local Ollama setup behavior, managed install logging, and local runtime notes
+- Updated [AI Agent](docs/08-ai-agent.md) with guided local Ollama setup behavior, managed install logging, and local runtime notes
 - Updated [User Guide](docs/10-user-guide.md) with local AI setup and troubleshooting details for managed Ollama installs
 
 ---
@@ -103,7 +135,7 @@ All notable changes to the AT-IBA-PA MINIMART POS system will be documented in t
 - Preference persisted to `localStorage`; opens/closes the Tauri customer display window accordingly
 
 ### 📝 Documentation
-- Rewrote [AI Analytics](docs/08-ai-analytics.md): multi-provider architecture, persistent conversations, file attachments, fullscreen mode, auto-retry, security model
+- Rewrote [AI Agent](docs/08-ai-agent.md): multi-provider architecture, persistent conversations, file attachments, fullscreen mode, auto-retry, security model
 - Added [Export Reports](docs/12-export-reports.md): full documentation of the new export configuration screen
 - Updated [User Guide](docs/10-user-guide.md): updated AI Agent section to cover new provider setup, attachments, fullscreen, and conversation history
 

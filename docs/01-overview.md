@@ -52,7 +52,7 @@ graph LR
 | **QR digital receipts** | Encodes completed receipts into a QR URL that customers can open on their phones |
 | **LAN sync** | Admin and Cashier terminals synchronize on the local network using UDP discovery plus WebSocket messaging |
 | **Cloud sync** | Optional runtime Supabase sync for backup and cross-device visibility |
-| **Admin AI assistant** | Sidebar assistant with Groq, Mistral, or local Ollama support, saved conversations, verified admin help, live store lookups, structured attachments, spreadsheet import preview, and chat-delivered report exports |
+| **Admin AI assistant** | Sidebar assistant entirely driven by local Ollama capabilities, saved conversations, verified admin help, live store lookups, structured attachments, spreadsheet import preview, and chat-delivered report exports |
 | **Offline-first fallback** | Transactions continue locally when cloud or LAN connectivity is unavailable |
 
 ---

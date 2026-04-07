@@ -1,4 +1,4 @@
-# AI-Powered Analytics
+# AI Agent
 
 ## Overview
 
@@ -14,26 +14,20 @@ This feature is available only in **Admin IMS**.
 flowchart LR
     AdminUI["Admin UI"] --> Sidebar["AI sidebar"]
     Sidebar --> LocalDB["Local SQLite conversation history"]
-    Sidebar --> Groq["Groq"]
-    Sidebar --> Mistral["Mistral"]
     Sidebar --> Ollama["Local Ollama"]
 ```
 
-The current implementation sends provider requests directly from the Admin app. There is no server-side edge proxy in front of Groq or Mistral.
+The system sends AI requests directly to the managed local Ollama installation via API.
 
 ---
 
-## Supported Providers
+## Supported Provider
 
-| Provider | Notes |
-|----------|-------|
-| **Groq** | Default hosted provider |
-| **Mistral** | Hosted provider with its own model list |
-| **Local Ollama** | Runs on `localhost:11434`, no hosted API key required, with guided setup from Admin Settings |
+Only a local Ollama instance is supported to guarantee the highest security and manageability. No hosted API keys (like third-party APIs) are required or supported.
 
 Default model:
 
-- `llama-3.3-70b-versatile`
+- `gpt-oss:20b-cloud` (or matching internal variations)
 
 ---
 
@@ -43,40 +37,39 @@ AI configuration is stored in the local SQLite `settings` table using local-only
 
 Current keys:
 
-- `ai_provider`
-- `ai_api_key_enc`
-- `ai_mistral_key_enc`
-- `groq_model`
+- `ai_provider` (Fixed to local)
+- `ollama_model` / `ai_model`
 
 Behavior:
 
-- Hosted provider keys are encrypted with the app's AES-256-GCM helper before storage.
-- These settings are written with local-only sync behavior so cloud pull does not overwrite them.
+- AI Provider settings are persisted in local SQLite and do not conflict with remote environments natively.
 
 ---
 
 ## Main Features
 
-### 1. Provider and model switching
+### 1. Model Switching
 
 The sidebar and settings screen can:
 
-- Switch between Groq, Mistral, and local Ollama
-- Fetch available models from the active provider
+- Seamlessly interact with the local Ollama daemon
+- Fetch available installed models
 - Persist the chosen model locally
 
-### 1.1 Guided local Ollama setup
+### 1.1 Guided Ollama Setup
 
-When **Local Ollama** is selected, the Admin Settings flow can:
+The Admin Settings flow handles Ollama management locally:
 
-- check whether Ollama is already available
+- check whether Ollama is already available using process checks and PID file handling
 - offer a managed lightweight install when Ollama is missing
 - open the required sign-in step when Ollama Cloud access is needed
 - re-check service availability after install startup
+- provide one-click uninstall functionality with smooth status refresh logic
 
 Managed install behavior on Windows:
 
 - installs into the app's local data directory instead of requiring a full desktop app install
+- utilizes PID file tracking to safely manage background Ollama instances
 - starts `ollama serve` in the background after extraction
 - writes install progress and failure details into a managed log file
 
@@ -214,9 +207,7 @@ For inventory-changing import flows, the assistant should ask for a clear confir
 
 | Concern | Current behavior |
 |---------|------------------|
-| Hosted API keys | Encrypted before local storage |
 | Conversation history | Stored locally in SQLite |
-| Local Ollama | Runs on-device without hosted API keys; managed install and service startup stay local to the machine |
-| Hosted provider privacy | Prompt content is sent to the selected hosted provider when Groq or Mistral is used |
+| Setup and Runtime | Runs natively on-device without external hosted API keys; managed install and service startup stay local to the machine |
 
-If the operator wants no hosted provider exposure, local Ollama is the on-device option.
+The exclusive use of Ollama guarantees on-device privacy logic without relying on explicit external third-party inferences out-of-the-box (barring explicit ollama cloud models if a user opts-in).

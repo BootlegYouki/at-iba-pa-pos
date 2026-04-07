@@ -20,7 +20,7 @@
   <img src="https://img.shields.io/badge/SQLite-07405E?style=for-the-badge&logo=sqlite&logoColor=white" alt="SQLite">
   <img src="https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white" alt="Supabase">
   <img src="https://img.shields.io/badge/shadcn%2Fui-000000?style=for-the-badge&logo=shadcnui&logoColor=white" alt="shadcn/ui">
-  <img src="https://img.shields.io/badge/Groq-000000?style=for-the-badge&logo=groq&logoColor=white" alt="Groq">
+  <img src="https://img.shields.io/badge/Ollama-000000?style=for-the-badge&logo=ollama&logoColor=white" alt="Ollama">
 </p>
 
 <p align="center">
@@ -45,7 +45,9 @@
 | **Customer display** | Dedicated second-screen experience showing live cart, payment state, and receipt QR code |
 | **Digital receipts** | Receipts are encoded into a QR URL that customers can open on their phones |
 | **Reports and exports** | Admin dashboards, transaction history, and configurable XLSX workbook exports |
-| **Admin AI assistant** | Sidebar assistant with Groq, Mistral, or local Ollama models, guided Ollama setup, saved conversations, verified admin help, structured file attachments, spreadsheet import preview, and chat-delivered report exports |
+| **Admin AI assistant** | Sidebar assistant strictly using local Ollama capability, featuring guided setup, saved conversations, verified admin help, structured file attachments, spreadsheet import preview, and chat-delivered report exports |
+| **Auto update** | Built-in seamless updater utilizing Tauri plugin-updater and Github releases |
+| **Admin Mobile App** | (Experimental) A lightweight mobile web interface for Admin tasks |
 | **Desktop-native packaging** | Tauri-based Windows apps with separate Admin IMS and Cashier POS builds |
 
 ---
@@ -117,12 +119,14 @@ For multi-terminal setups:
 | 5 | [Cloud Sync](docs/05-cloud-sync.md) | Runtime Supabase configuration, sync loop, and offline/cloud behavior |
 | 6 | [Barcode Scanner](docs/06-barcode-scanner.md) | Scanner heuristics, multiplier syntax, and input handling |
 | 7 | [Customer Display & Receipts](docs/07-customer-display.md) | Customer-facing window, QR receipts, and receipt display flow |
-| 8 | [AI Analytics](docs/08-ai-analytics.md) | Admin AI sidebar, provider options, verified help, conversations, attachments, spreadsheet import preview, and chat exports |
+| 8 | [AI Agent](docs/08-ai-agent.md) | Admin AI sidebar, managed Ollama setup, verified help, conversations, attachments, and data preview |
 | 9 | [Security](docs/09-security.md) | Authentication, hashing, encryption boundaries, and transport assumptions |
 | 10 | [User Guide](docs/10-user-guide.md) | Setup, cashier workflow, admin workflow, and troubleshooting |
 | 11 | [Performance](docs/11-performance.md) | SQLite tuning, batching, pagination, and runtime considerations |
 | 12 | [Database Schema](docs/database_schema.md) | Table-by-table SQLite reference |
 | 13 | [Export Reports](docs/12-export-reports.md) | Workbook layouts, export sections, filters, and file output behavior |
+| 14 | [Auto Update](docs/13-auto-update.md) | Release channels, update checking, and background downloads |
+| 15 | [Mobile App](docs/14-mobile-app.md) | Experimental mobile web interface for Admin |
 
 ---
 
@@ -135,7 +139,7 @@ For multi-terminal setups:
 | **Storage** | 200 MB |
 | **Display** | 1280 x 720 |
 | **Network** | LAN for multi-terminal sync |
-| **Internet** | Optional, used for cloud sync and hosted AI providers |
+| **Internet** | Optional, used for cloud sync feature and optional Ollama cloud models |
 | **Barcode Scanner** | Any USB HID scanner |
 
 ---
@@ -158,16 +162,11 @@ graph TB
 
     subgraph Cloud["Optional Cloud Services"]
         Supabase["Supabase Postgres + Realtime"]
-        Groq["Groq"]
-        Mistral["Mistral"]
-        Ollama["Local Ollama"]
     end
 
     Admin -->|"LAN server"| Cashier
     Admin -->|"Background sync"| Supabase
     Cashier -->|"Background sync when applicable"| Supabase
-    Admin -->|"AI requests"| Groq
-    Admin -->|"AI requests"| Mistral
     Admin -->|"AI requests"| Ollama
 ```
 

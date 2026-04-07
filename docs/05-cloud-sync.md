@@ -10,14 +10,14 @@ If no credentials are configured, the apps continue in local-only mode.
 
 ## Runtime Cloud Configuration
 
-Supabase credentials are not compiled into the app. They are entered at runtime from the Admin Settings UI.
+Supabase configuration is now 100% automated using an OAuth broker. Credentials are not compiled into the app, nor are they manually typed by the user.
 
 ```mermaid
 flowchart LR
-    Settings["Admin Settings UI"] --> Store[".settings.dat"]
+    Settings["Admin Settings UI"] --> Broker["Cloud Sync Gateway (Vercel)"]
+    Broker --> Loopback["Localhost loopback handoff"]
+    Loopback --> Store[".settings.dat"]
     Store --> Rust["Rust DbState"]
-    Store --> UI["Frontend cloud client"]
-    Rust --> Loop["Background sync loop"]
 ```
 
 Committed cloud settings currently use:
@@ -29,36 +29,23 @@ Committed cloud settings currently use:
 
 Admin Settings behavior:
 
-- Validates URL and anon key format
-- Can test connectivity against the `products` table
-- Detects missing tables and shows setup SQL
-- Saves committed credentials
+- Opens an external browser to the standalone Vercel Supabase OAuth broker
+- Catches the returned connection data via a temporary `localhost` server loopback handoff
+- Intelligently polls for project discovery and auto-initialization
+- Resiliently handles DNS propagation and connection delays during new project initialization
+- Saves committed credentials automatically
 - Calls `update_cloud_config` so Rust updates the running sync engine
 
 ---
 
 ## Fresh Project Setup
 
-If the target Supabase project does not have the required tables yet, the Admin UI enters a `tables_missing` state and offers:
+The transition to automated provisioning eliminates manual SQL execution. When the app detects a new (empty) Supabase project, or provisions a new one via the Gateway:
 
-- A copyable SQL migration
-- A shortcut to the Supabase SQL editor
-
-The generated SQL currently creates:
-
-- `products`
-- `transactions`
-- `transaction_items`
-- `users`
-- `settings`
-- `inventory_logs`
-
-The setup SQL also creates the stock-application trigger used by cloud sales:
-
-- `apply_inventory_log_to_product_stock()`
-- `trg_apply_inventory_log_to_product_stock`
-
-It also enables permissive RLS policies for the anon role so the app can operate with the configured anon key.
+- The sync engine identifies an absent `system_instance_id`
+- The settings polling logic automatically pushes a bootstrap schema setup without user intervention
+- The initialization configures permissive RLS policies for the anon role so the app can operate securely
+- It establishes the required trigger logic (`apply_inventory_log_to_product_stock`) for `inventory_logs` to maintain cloud stock deterministically.
 
 ---
 
@@ -243,16 +230,17 @@ This is a trigger mechanism, not the main source of truth. The Rust sync loop re
 
 ## Conflict Handling
 
-The current design keeps most conflict cases simple:
+The current design keeps most conflict cases simple, but includes strong identity safeguards against accidental cross-pollution:
 
 | Data type | Strategy |
 |-----------|----------|
-| Transactions | Append-only upstream records |
-| Products | Prefer newer cloud row unless local row is still pending |
-| Settings | Preserve local-only settings and pending local edits |
-| Users | Admin-managed rows flow downstream and upstream through sync status rules |
-| Inventory logs | Stable IDs and reference IDs keep retries idempotent |
-| Deletions | Use tombstones or deletion cleanup against synced rows |
+| **Database Identity** | Cross-checks `system_instance_id`. If a mismatch is detected, pauses sync and prompts Admin (Keep Local vs. Keep Cloud or wipe). If cloud is bootstrap-empty, auto-populates cloud without prompt. |
+| **Transactions** | Append-only upstream records |
+| **Products** | Prefer newer cloud row unless local row is still pending |
+| **Settings** | Preserve local-only settings and pending local edits |
+| **Users** | Admin-managed rows flow downstream and upstream through sync status rules |
+| **Inventory logs** | Stable IDs and reference IDs keep retries idempotent |
+| **Deletions** | Use tombstones or deletion cleanup against synced rows |
 
 ---
 

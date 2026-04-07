@@ -61,9 +61,6 @@ Some secrets are encrypted before storage using AES-256-GCM.
 
 Current encrypted-at-rest examples:
 
-| Secret | Storage location |
-|--------|------------------|
-| Hosted AI provider keys | SQLite `settings` table |
 | Committed Supabase anon key | Tauri store `.settings.dat` |
 
 The encryption key is an **app-level compiled key** in the Rust codebase.
@@ -93,33 +90,29 @@ Supabase credentials are configured at runtime, not baked into the binary.
 
 Current model:
 
-- `supabaseUrl` and anon key are entered through Admin Settings
-- The generated setup SQL enables permissive anon-role RLS policies so the app can operate against that project
-- Each deployment is expected to use its own isolated Supabase project
+- `supabaseUrl` and anon key are handled securely via the Vercel OAuth Broker integration with Admin Settings
+- The automated database provisioner sets permissive anon-role RLS policies to allow frictionless deployment
+- Each deployment uses its own isolated Supabase project
 
 Operational implication:
 
 - Protection depends heavily on controlling the store's Supabase project and anon key
-- The current default SQL is convenience-oriented, not a high-isolation multi-tenant design
+- The automated configuration is convenience-oriented, not a high-isolation multi-tenant design
 
 ---
 
 ## AI Provider Boundary
 
-Hosted AI requests go directly from the Admin app to the selected provider.
+All AI requests are handled offline securely by the Local Ollama instance. There is no external exposure of store analytics.
 
 ```mermaid
 flowchart LR
-    Admin["Admin app"] --> Groq["Groq"]
-    Admin --> Mistral["Mistral"]
-    Admin --> Ollama["Local Ollama"]
+    Admin["Admin app"] --> Ollama["Local Ollama"]
 ```
 
-Important implication:
-
-- There is no server-side proxy hiding Groq or Mistral API keys from the Admin workstation itself.
-- Prompt contents are sent to the hosted provider when using Groq or Mistral.
-- Ollama is the fully local option.
+Important implications:
+- Complete on-device data privacy is retained.
+- Prompts, internal documentation, and analytics output never leave the local environment unless cloud-specific opt-in models are deliberately downloaded by the user.
 
 ---
 
@@ -130,7 +123,6 @@ Important implication:
 | Path | Protection |
 |------|------------|
 | App <-> Supabase | HTTPS / TLS |
-| Admin <-> hosted AI provider | HTTPS / TLS |
 
 ### LAN traffic
 
@@ -155,7 +147,6 @@ Use LAN sync only on trusted in-store networks.
 |------|--------------------|
 | User passwords and PINs | bcrypt hashes |
 | Local SQLite files | Windows account and filesystem protection |
-| AI provider keys | AES-encrypted before local storage |
 | Committed cloud anon key | AES-encrypted before Tauri store write |
 | Cloud data in transit | TLS |
 | LAN sync data in transit | Plaintext LAN transport |
