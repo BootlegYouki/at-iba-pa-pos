@@ -418,3 +418,39 @@ The app does **not** currently seed sample products or sample transaction histor
 | **Production Admin** | `%APPDATA%/com.pos.admin/pos-admin.db` |
 | **Production Cashier** | `%APPDATA%/com.pos.cashier/pos-cashier.db` |
 | **Development** | `src-tauri/databases/pos-{mode}.db` |
+
+---
+
+## Cloud Schema (Supabase)
+
+The ERD above documents the **local SQLite schema**, which is the source of truth for all app behavior. The Supabase (PostgreSQL) cloud database is a leaner sync target — it carries only the data that needs to be shared across devices, not the operational machinery.
+
+### Tables synced to cloud
+
+| Table | Rows (live) |
+|-------|-------------|
+| `products` | ✅ Synced |
+| `transactions` | ✅ Synced |
+| `transaction_items` | ✅ Synced |
+| `inventory_logs` | ✅ Synced |
+| `users` | ✅ Synced |
+| `settings` | ✅ Synced (except `sync_status = 'local'` rows) |
+
+### Tables that are local-only (not in cloud)
+
+| Table | Reason |
+|-------|--------|
+| `categories` | UI helper/seed list — store preference, not shared data |
+| `product_deletions` | Tombstone consumed by sync engine then cleared |
+| `user_deletions` | Same — tombstone consumed and cleared after sync |
+| `ai_conversations` | Admin-only local feature |
+| `ai_messages` | Admin-only local feature |
+
+### Column differences
+
+| Difference | Detail |
+|------------|--------|
+| `sync_status` columns | **Stripped from cloud** — only `inventory_logs` keeps it in Supabase |
+| `lan_status` on `transactions` | **Stripped** — LAN sync is a local concern only |
+| `instance_id` on all cloud tables | **Cloud-only extra column** — auto-filled by `pos_current_instance_id()` Postgres function for multi-store row isolation |
+| Timestamp type | Local uses `TEXT` (ISO-8601 strings); cloud uses `timestamptz` (native PostgreSQL type) |
