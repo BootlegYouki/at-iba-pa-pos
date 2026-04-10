@@ -227,18 +227,18 @@ Key settings areas:
 | User management | Admin and cashier accounts |
 | Cloud sync | Supabase OAuth connection and automated database provisioning |
 | Backup / reset | Local data export, restore, and reset tools |
-| AI | Local Ollama setup and model selection |
+| AI | Managed Ollama setup, verification, and model selection |
 
 ### AI Setup
 
-Because the system uses an exclusively managed Ollama instance securely on-device:
+The system uses an app-managed Ollama runtime on the Admin machine:
 
 1. Open **Settings**
 2. Go to the **AI** section
 3. Use **Verify**
 5. If Ollama is missing, confirm the guided install step
 6. Wait for the installer to finish downloading, extracting, and starting the local Ollama service
-7. If prompted for sign-in, complete that step and return to the app for verification
+7. If prompted for sign-in for cloud-capable Ollama access, complete that step and return to the app for verification
 
 Managed install files are stored under:
 

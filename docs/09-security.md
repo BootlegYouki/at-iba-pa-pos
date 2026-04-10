@@ -103,16 +103,17 @@ Operational implication:
 
 ## AI Provider Boundary
 
-All AI requests are handled offline securely by the Local Ollama instance. There is no external exposure of store analytics.
+AI traffic is routed through the app-managed Ollama runtime on the Admin machine. That keeps provider handling centralized, but it does not guarantee that every response is offline.
 
 ```mermaid
 flowchart LR
-    Admin["Admin app"] --> Ollama["Local Ollama"]
+    Admin["Admin app"] --> Ollama["Ollama runtime"]
 ```
 
 Important implications:
-- Complete on-device data privacy is retained.
-- Prompts, internal documentation, and analytics output never leave the local environment unless cloud-specific opt-in models are deliberately downloaded by the user.
+- If the selected Ollama model is local, prompts and responses stay on the Admin machine.
+- If the operator signs in and selects a cloud-capable Ollama model, prompts and responses may traverse Ollama-hosted infrastructure.
+- The app still does not expose arbitrary third-party AI provider keys or direct provider switching beyond Ollama.
 
 ---
 

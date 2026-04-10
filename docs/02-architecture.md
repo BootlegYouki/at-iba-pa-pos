@@ -28,7 +28,7 @@ graph TB
 
     subgraph Cloud["Optional Cloud Services"]
         Supabase["Supabase Postgres + Realtime"]
-        Ollama["Local Ollama"]
+        Ollama["Ollama runtime"]
     end
 
     CashierRust -->|"LAN sync"| WSServer
@@ -52,7 +52,7 @@ graph TB
 | **Local database** | SQLite via `sqlx` | Durable offline storage |
 | **Cloud sync** | Supabase Postgres + Realtime broadcast | Backup, shared data, and sync triggers |
 | **LAN transport** | `axum`, `tokio-tungstenite`, UDP broadcast | Admin server, cashier client, and discovery |
-| **AI providers** | Local Ollama | Admin-only assistant models |
+| **AI provider runtime** | Managed Ollama runtime | Admin-only assistant models, including Ollama-hosted cloud-capable models when the operator signs in |
 | **Excel export** | `exceljs` | Configurable workbook generation |
 
 ---

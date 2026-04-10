@@ -14,20 +14,20 @@ This feature is available only in **Admin IMS**.
 flowchart LR
     AdminUI["Admin UI"] --> Sidebar["AI sidebar"]
     Sidebar --> LocalDB["Local SQLite conversation history"]
-    Sidebar --> Ollama["Local Ollama"]
+    Sidebar --> Ollama["Ollama runtime"]
 ```
 
-The system sends AI requests directly to the managed local Ollama installation via API.
+The system sends AI requests to the app-managed Ollama runtime. In practice that runtime still lives on the Admin machine, but the selected model can be a local Ollama model or an Ollama-hosted cloud-capable model exposed through the same runtime.
 
 ---
 
 ## Supported Provider
 
-Only a local Ollama instance is supported to guarantee the highest security and manageability. No hosted API keys (like third-party APIs) are required or supported.
+Only Ollama is supported. The app does not expose separate third-party AI provider keys or provider switching beyond Ollama, but the managed Ollama runtime can expose either local models or cloud-capable models after the operator completes Ollama sign-in.
 
 Default model:
 
-- `gpt-oss:20b-cloud` (or matching internal variations)
+- `gpt-oss:20b-cloud`
 
 ---
 
@@ -42,7 +42,8 @@ Current keys:
 
 Behavior:
 
-- AI Provider settings are persisted in local SQLite and do not conflict with remote environments natively.
+- AI provider settings are persisted in local SQLite.
+- These settings are intentionally local-only and should not be overwritten by cloud sync.
 
 ---
 
@@ -62,7 +63,7 @@ The Admin Settings flow handles Ollama management locally:
 
 - check whether Ollama is already available using process checks and PID file handling
 - offer a managed lightweight install when Ollama is missing
-- open the required sign-in step when Ollama Cloud access is needed
+- open the required sign-in step when a cloud-capable Ollama model is needed
 - re-check service availability after install startup
 - provide one-click uninstall functionality with smooth status refresh logic
 
@@ -208,6 +209,6 @@ For inventory-changing import flows, the assistant should ask for a clear confir
 | Concern | Current behavior |
 |---------|------------------|
 | Conversation history | Stored locally in SQLite |
-| Setup and Runtime | Runs natively on-device without external hosted API keys; managed install and service startup stay local to the machine |
+| Setup and Runtime | Runs through the local app-managed Ollama runtime; no separate third-party API keys are exposed in the app |
 
-The exclusive use of Ollama guarantees on-device privacy logic without relying on explicit external third-party inferences out-of-the-box (barring explicit ollama cloud models if a user opts-in).
+The exclusive use of Ollama keeps provider handling constrained to one managed runtime. If the operator signs in and selects a cloud-capable Ollama model, inference may use Ollama-hosted services, but that still happens through the same app-managed integration rather than arbitrary external provider keys.

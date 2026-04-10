@@ -2,14 +2,19 @@
 
 ## Overview
 
-A mobile web interface (`mobile-app` directory) is currently an **experimental** offering designed for administrative control on-the-go.
+The mobile admin concept is currently **experimental** and is not part of the supported Windows desktop release. The main shipped product remains the two Tauri desktop apps: **Admin IMS** and **Cashier POS**.
 
 ## Architecture
 
-- Built using **React**, **TypeScript**, **Vite** and **Tailwind CSS**.
-- Reuses core design principles from the Admin IMS but adapts them to mobile touch patterns.
-- Does not run locally via typical Tauri runtime on iPhones/Android, but rather connects to the cloud synced Supabase backend to retrieve the data securely.
+- The active production codebase is centered on the desktop apps in the main repository.
+- Mobile-oriented admin ideas should be treated as exploratory work, not as a third shipped client with parity to Admin IMS.
+- It is not packaged through the desktop Tauri installer flow and should not be documented as a standard deployment target.
 
 ## Current State
 
-This project is actively receiving updates and its UI layout and operational capabilities are not finalized. Currently, it serves as a lightweight alternative to the primary Windows Desktop Admin IMS.
+Current status:
+
+- Not included in the standard GitHub release installers
+- Not a native Android or iOS app
+- Not documented as feature-complete or production-ready
+- Best treated as exploratory work rather than a supported store operation surface

@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo/logo-placeholder.png" alt="AT-IBA-PA MINIMART" width="120" />
+  <img src="assets/logo/logo.png" alt="AT-IBA-PA MINIMART" width="120" />
 </p>
 
 <h1 align="center">AT-IBA-PA MINIMART</h1>
@@ -45,9 +45,9 @@
 | **Customer display** | Dedicated second-screen experience showing live cart, payment state, and receipt QR code |
 | **Digital receipts** | Receipts are encoded into a QR URL that customers can open on their phones |
 | **Reports and exports** | Admin dashboards, transaction history, and configurable XLSX workbook exports |
-| **Admin AI assistant** | Sidebar assistant strictly using local Ollama capability, featuring guided setup, saved conversations, verified admin help, structured file attachments, spreadsheet import preview, and chat-delivered report exports |
+| **Admin AI assistant** | Sidebar assistant built on the app-managed Ollama runtime, with guided setup, saved conversations, verified admin help, structured file attachments, spreadsheet import preview, and chat-delivered report exports |
 | **Auto update** | Built-in seamless updater utilizing Tauri plugin-updater and Github releases |
-| **Admin Mobile App** | (Experimental) A lightweight mobile web interface for Admin tasks |
+| **Experimental mobile concept** | Mobile-oriented Admin work is not part of the supported desktop release and should not be treated as a shipped product surface |
 | **Desktop-native packaging** | Tauri-based Windows apps with separate Admin IMS and Cashier POS builds |
 
 ---
@@ -126,7 +126,7 @@ For multi-terminal setups:
 | 12 | [Database Schema](docs/database_schema.md) | Table-by-table SQLite reference |
 | 13 | [Export Reports](docs/12-export-reports.md) | Workbook layouts, export sections, filters, and file output behavior |
 | 14 | [Auto Update](docs/13-auto-update.md) | Release channels, update checking, and background downloads |
-| 15 | [Mobile App](docs/14-mobile-app.md) | Experimental mobile web interface for Admin |
+| 15 | [Mobile App](docs/14-mobile-app.md) | Current status of the experimental mobile web project |
 
 ---
 
