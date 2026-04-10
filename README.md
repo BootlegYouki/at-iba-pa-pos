@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo/logo.png" alt="AT-IBA-PA MINIMART" width="120" />
+  <img src="assets/logo/logo.png" alt="AT-IBA-PA MINIMART" width="240" />
 </p>
 
 <h1 align="center">AT-IBA-PA MINIMART</h1>
