@@ -45,6 +45,7 @@ This reference mirrors the SQLite schema created by the Rust startup logic.
 - `reference_number` TEXT
 - `created_at` TEXT NOT NULL DEFAULT `datetime('now')`
 - `sync_status` TEXT NOT NULL DEFAULT `'pending'`
+- `lan_status` TEXT NOT NULL DEFAULT `'none'`
 
 ### 5. `transaction_items`
 
@@ -75,20 +76,28 @@ Notes:
 - `updated_at` TEXT NOT NULL DEFAULT `datetime('now')`
 - `sync_status` TEXT NOT NULL DEFAULT `'synced'`
 
-### 7. `settings`
+### 7. `user_deletions`
+
+Tombstone table for cloud sync. Mirrors user hard-deletes.
+
+- `id` TEXT PRIMARY KEY
+- `deleted_at` TEXT NOT NULL DEFAULT `datetime('now')`
+- `sync_status` TEXT NOT NULL DEFAULT `'pending'`
+
+### 8. `settings`
 
 - `key` TEXT PRIMARY KEY
 - `value` TEXT NOT NULL
 - `updated_at` TEXT NOT NULL DEFAULT `datetime('now')`
 - `sync_status` TEXT NOT NULL DEFAULT `'synced'`
 
-### 8. `categories`
+### 9. `categories`
 
 - `name` TEXT PRIMARY KEY
 
 This table is local-only and used for category defaults plus inventory UI helpers.
 
-### 9. `ai_conversations`
+### 10. `ai_conversations`
 
 Admin-only local history table.
 
@@ -97,7 +106,7 @@ Admin-only local history table.
 - `created_at` TEXT NOT NULL DEFAULT `datetime('now')`
 - `updated_at` TEXT NOT NULL DEFAULT `datetime('now')`
 
-### 10. `ai_messages`
+### 11. `ai_messages`
 
 Admin-only local message table.
 
@@ -116,6 +125,7 @@ On first initialization, the app seeds:
 - `store_name = "My Store"`
 - `store_subtitle = ""`
 - Default Admin user if no Admin exists
+- `system_instance_id` (UUID, admin DB only)
 
 Default Admin credentials:
 
@@ -124,6 +134,9 @@ Default Admin credentials:
 
 ## Important Notes
 
-- AI config values are stored in `settings` as local-only rows and are not intended for cloud overwrite.
+- AI config values are stored in `settings` as local-only rows (`sync_status = 'local'`) and are not intended for cloud overwrite.
 - Cashier and Admin use the same logical schema, but only Admin creates the AI conversation tables.
 - Product deletion sync uses `product_deletions` tombstones instead of only relying on hard deletes.
+- User deletion sync uses `user_deletions` tombstones for the same reason.
+- `transactions.lan_status` tracks the LAN push state independently from `sync_status`.
+- The trigger `trg_apply_inventory_log_to_product_stock` updates `products.stock` on every `inventory_logs` INSERT where `sync_status != 'synced'`.

@@ -22,106 +22,122 @@ The UI never writes raw SQL directly. Pages call DAL helpers, which call Tauri c
 
 ---
 
-## Schema Summary
+## Schema ERD
+
+> **Engine**: SQLite (WAL mode, FK enforcement on)  
+> **Databases**: `pos-admin.db` (full schema) · `pos-cashier.db` (subset — no AI tables)
 
 ```mermaid
 erDiagram
-    PRODUCTS {
-        TEXT id PK
-        TEXT barcode
-        TEXT name
-        REAL price
-        INTEGER stock
-        TEXT category
-        TEXT sku
-        INTEGER low_stock_threshold
-        TEXT created_at
-        TEXT updated_at
-        TEXT sync_status
-        INTEGER is_active
+
+    products {
+        TEXT id PK "UUID v4"
+        TEXT barcode UK "NOT NULL, UNIQUE"
+        TEXT name "NOT NULL"
+        REAL price "NOT NULL"
+        INTEGER stock "DEFAULT 0 - maintained by trigger"
+        TEXT category "DEFAULT Uncategorized"
+        TEXT sku "nullable - auto-generated if missing"
+        INTEGER low_stock_threshold "DEFAULT 10"
+        TEXT created_at "ISO-8601"
+        TEXT updated_at "ISO-8601 - updated by trigger"
+        TEXT sync_status "pending|synced|failed|deleted|lan_synced"
+        INTEGER is_active "1=active 0=archived"
     }
 
-    PRODUCT_DELETIONS {
-        TEXT id PK
-        TEXT deleted_at
-        TEXT sync_status
+    categories {
+        TEXT name PK "Local-only master list"
     }
 
-    INVENTORY_LOGS {
-        TEXT id PK
-        TEXT product_id
-        INTEGER change_amount
-        TEXT reason
-        TEXT reference_id
-        TEXT created_at
-        TEXT sync_status
+    transactions {
+        TEXT id PK "UUID v4"
+        REAL total "NOT NULL"
+        TEXT cashier "Denormalized name - no FK to users"
+        TEXT payment_method "NOT NULL"
+        REAL amount_paid "NOT NULL"
+        TEXT reference_number "nullable"
+        TEXT created_at "ISO-8601"
+        TEXT sync_status "pending|synced|failed|deleted|lan_synced"
+        TEXT lan_status "none|pending|acked"
     }
 
-    TRANSACTIONS {
-        TEXT id PK
-        REAL total
-        TEXT cashier
-        TEXT payment_method
-        REAL amount_paid
-        TEXT reference_number
-        TEXT created_at
-        TEXT sync_status
+    transaction_items {
+        TEXT id PK "UUID v4"
+        TEXT transaction_id FK "-> transactions.id CASCADE"
+        TEXT product_id "Soft-FK -> products.id no hard constraint"
+        TEXT product_name "Denormalized snapshot at sale time"
+        TEXT category "Denormalized/backfilled from products"
+        INTEGER quantity "NOT NULL"
+        REAL price_at_sale "NOT NULL - frozen at time of sale"
     }
 
-    TRANSACTION_ITEMS {
-        TEXT id PK
-        TEXT transaction_id
-        TEXT product_id
-        TEXT product_name
-        TEXT category
-        INTEGER quantity
-        REAL price_at_sale
+    inventory_logs {
+        TEXT id PK "UUID v4"
+        TEXT product_id FK "-> products.id CASCADE"
+        INTEGER change_amount "Signed delta negative=sale"
+        TEXT reason "SALE|RESTOCK|MANUAL_ADJUSTMENT|INITIAL_CREATION|AI"
+        TEXT reference_id "nullable - txn ID for SALE rows"
+        TEXT created_at "ISO-8601"
+        TEXT sync_status "pending|synced|failed|deleted|lan_synced"
     }
 
-    USERS {
-        TEXT id PK
-        TEXT username
-        TEXT password
-        TEXT name
-        TEXT initials
-        TEXT pin
-        TEXT role
-        TEXT status
-        TEXT created_at
-        TEXT updated_at
-        TEXT sync_status
+    users {
+        TEXT id PK "UUID v4"
+        TEXT username UK "nullable UNIQUE"
+        TEXT password "bcrypt hash nullable"
+        TEXT name "NOT NULL display name"
+        TEXT initials "nullable"
+        TEXT pin "bcrypt hash nullable"
+        TEXT role "admin|cashier"
+        TEXT status "active|inactive DEFAULT active"
+        TEXT created_at "ISO-8601"
+        TEXT updated_at "ISO-8601"
+        TEXT sync_status "pending|synced|failed"
     }
 
-    SETTINGS {
-        TEXT key PK
-        TEXT value
-        TEXT updated_at
-        TEXT sync_status
+    product_deletions {
+        TEXT id PK "Mirrors products.id"
+        TEXT deleted_at "ISO-8601"
+        TEXT sync_status "pending|synced"
     }
 
-    CATEGORIES {
-        TEXT name PK
+    user_deletions {
+        TEXT id PK "Mirrors users.id"
+        TEXT deleted_at "ISO-8601"
+        TEXT sync_status "pending|synced"
     }
 
-    AI_CONVERSATIONS {
-        TEXT id PK
-        TEXT title
-        TEXT created_at
-        TEXT updated_at
+    settings {
+        TEXT key PK "e.g. store_name system_instance_id"
+        TEXT value "NOT NULL"
+        TEXT updated_at "ISO-8601"
+        TEXT sync_status "pending|synced|local"
     }
 
-    AI_MESSAGES {
-        TEXT id PK
-        TEXT conversation_id
-        TEXT role
-        TEXT content
-        INTEGER is_error
-        TEXT created_at
+    ai_conversations {
+        TEXT id PK "UUID v4"
+        TEXT title "DEFAULT New Chat"
+        TEXT created_at "ISO-8601"
+        TEXT updated_at "ISO-8601"
     }
 
-    PRODUCTS ||--o{ INVENTORY_LOGS : "has"
-    TRANSACTIONS ||--o{ TRANSACTION_ITEMS : "has"
-    AI_CONVERSATIONS ||--o{ AI_MESSAGES : "has"
+    ai_messages {
+        TEXT id PK "UUID v4"
+        TEXT conversation_id FK "-> ai_conversations.id CASCADE"
+        TEXT role "user|assistant"
+        TEXT content "NOT NULL"
+        INTEGER is_error "0|1"
+        TEXT created_at "ISO-8601"
+    }
+
+    transactions         ||--o{ transaction_items   : "contains"
+    products             ||--o{ inventory_logs       : "tracked-by"
+    transactions         ||--o{ inventory_logs       : "references via reference_id"
+    ai_conversations     ||--o{ ai_messages          : "holds"
+
+    products             ||--o{ transaction_items    : "sold-as soft-ref"
+    products             }o--o| product_deletions    : "tombstone"
+    users                }o--o| user_deletions       : "tombstone"
 ```
 
 ---
@@ -132,39 +148,74 @@ erDiagram
 
 Catalog of sellable products.
 
-| Column | Notes |
-|--------|-------|
-| `id` | UUID primary key |
-| `barcode` | Unique barcode, required |
-| `name` | Product display name |
-| `price` | Selling price |
-| `stock` | Current local stock |
-| `category` | Plain-text category name |
-| `sku` | Optional SKU |
-| `low_stock_threshold` | Per-product threshold |
-| `sync_status` | Sync lifecycle field |
-| `is_active` | Archive flag |
+| Column | Type | Notes |
+|--------|------|-------|
+| `id` | TEXT | UUID primary key |
+| `barcode` | TEXT | Unique barcode, required |
+| `name` | TEXT | Product display name |
+| `price` | REAL | Selling price |
+| `stock` | INTEGER | Maintained by trigger `trg_apply_inventory_log_to_product_stock` |
+| `category` | TEXT | Plain-text category name (DEFAULT `'Uncategorized'`) |
+| `sku` | TEXT | Auto-generated `{NAME}-{CAT}-{XXXX}` on startup if missing |
+| `low_stock_threshold` | INTEGER | Per-product low stock alert boundary (DEFAULT `10`) |
+| `sync_status` | TEXT | Sync lifecycle field |
+| `is_active` | INTEGER | Archive flag: `1` = active, `0` = archived/soft-deleted |
+
+**Indexes**: `idx_products_barcode`, `idx_products_sync_status`
 
 ### `product_deletions`
 
 Tombstone table used to synchronize product removals to cloud without hard-deleting immediately from every device.
 
+| Column | Notes |
+|--------|-------|
+| `id` | Mirrors `products.id` |
+| `deleted_at` | ISO-8601 |
+| `sync_status` | `pending\|synced` |
+
+**Index**: `idx_product_deletions_sync_status`
+
+### `user_deletions`
+
+Tombstone table for cloud sync. Mirrors user hard-deletes for cloud propagation.
+
+| Column | Notes |
+|--------|-------|
+| `id` | Mirrors `users.id` |
+| `deleted_at` | ISO-8601 |
+| `sync_status` | `pending\|synced` |
+
+**Index**: `idx_user_deletions_sync_status`
+
 ### `inventory_logs`
 
-Audit-style record of stock changes.
+Immutable audit ledger of all stock movements. Every stock change — sale, restock, manual adjustment, AI batch — writes a row here. The trigger `trg_apply_inventory_log_to_product_stock` automatically applies the delta to `products.stock`.
 
 | Column | Purpose |
 |--------|---------|
-| `product_id` | Related product |
-| `change_amount` | Positive or negative stock adjustment |
-| `reason` | Why the stock changed |
-| `reference_id` | Optional related record |
+| `product_id` | Related product (FK → `products.id` CASCADE) |
+| `change_amount` | Positive or negative stock adjustment (negative = sold) |
+| `reason` | `SALE`, `RESTOCK`, `MANUAL_ADJUSTMENT`, `INITIAL_CREATION`, `AI_*` |
+| `reference_id` | Transaction UUID for `SALE` rows; AI batch ref for AI rows |
 | `sync_status` | Pending or synced status for cloud flow |
 
 Important operational detail:
 
 - `inventory_logs` are the canonical stock event stream for cloud reconciliation.
 - For LAN-delivered sales, the Admin preserves the original log identifiers from the cashier so cloud retries stay idempotent.
+- Rows inserted with `sync_status = 'synced'` (cloud pull) bypass the trigger to avoid double-counting.
+
+**Indexes**: `idx_inventory_logs_product_id`, `idx_inventory_logs_created_at`, `idx_inventory_logs_sync_status`
+
+**Trigger — `trg_apply_inventory_log_to_product_stock`**:
+
+```sql
+AFTER INSERT ON inventory_logs
+FOR EACH ROW
+WHEN COALESCE(NEW.sync_status, 'pending') != 'synced'
+-- Applies: products.stock = MAX(0, stock + change_amount)
+-- Also updates products.updated_at to the newer of existing or new.created_at
+```
 
 ### `transactions`
 
@@ -172,15 +223,27 @@ Header row for each completed sale.
 
 | Column | Purpose |
 |--------|---------|
-| `cashier` | Cashier display name |
+| `cashier` | Cashier display name (denormalized string — no FK) |
 | `payment_method` | Cash, Card, GCash, or Maya |
 | `amount_paid` | Tendered amount |
 | `reference_number` | Optional for non-cash payments |
-| `sync_status` | Used for LAN/cloud sync tracking |
+| `sync_status` | Used for cloud sync tracking |
+| `lan_status` | LAN cashier push state: `none\|pending\|acked` |
+
+**Indexes**: `idx_txn_created_at`, `idx_txn_sync_status`, `idx_txn_lan_status`
 
 ### `transaction_items`
 
 Line items for each transaction.
+
+| Column | Notes |
+|--------|-------|
+| `transaction_id` | FK → `transactions.id` CASCADE |
+| `product_id` | **Soft-FK** to `products.id` — no hard constraint |
+| `product_name` | Denormalized snapshot at time of sale |
+| `category` | Denormalized; backfilled from `products` on migration |
+| `quantity` | Units sold |
+| `price_at_sale` | Price frozen at time of sale |
 
 Important implementation detail:
 
@@ -189,17 +252,23 @@ Important implementation detail:
 
 That is intentional. Old transaction history must remain readable even if a product is renamed, archived, or deleted later.
 
+**Index**: `idx_txn_items_txn_id`
+
 ### `users`
 
 Shared account table for Admin and Cashier users.
 
 | Column | Meaning |
 |--------|---------|
-| `username` / `password` | Admin login pair |
+| `username` / `password` | Admin login pair (password is bcrypt hash) |
 | `name` / `initials` | Display fields |
-| `pin` | Hashed cashier PIN |
+| `pin` | bcrypt hash used for cashier PIN auth |
 | `role` | `admin` or `cashier` |
 | `status` | `active` or `inactive` |
+
+**Index**: `idx_users_sync_status`
+
+**Seed**: One `admin` user (`username=admin`, `password=admin123` hashed) is auto-created on first run.
 
 ### `settings`
 
@@ -207,16 +276,20 @@ Key-value configuration table. Some settings are cloud-synced, while some are in
 
 Examples:
 
-- Cloud/shared: `store_name`, `store_subtitle`
-- Local-only: AI provider keys and model preferences
+- Cloud/shared: `store_name`, `store_subtitle`, `system_instance_id`
+- Local-only: AI provider keys and model preferences (stored with `sync_status = 'local'`)
 
 ### `categories`
 
-Local-only master list of categories used by inventory UI helpers and defaults.
+Local-only master list of categories used by inventory UI helpers and defaults. Not synced to cloud. When a category is deleted, all products are reassigned to `'Uncategorized'`.
 
 ### `ai_conversations` and `ai_messages`
 
 Admin-only tables for the AI sidebar. These are local history tables and are not part of LAN or cloud sync.
+
+`ai_messages` has a FK → `ai_conversations.id` with CASCADE delete.
+
+**Index**: `idx_ai_messages_convo`
 
 ---
 
@@ -232,6 +305,7 @@ Common values used in the current codebase:
 | `synced` | Confirmed as synchronized |
 | `failed` | Push failed and needs retry |
 | `lan_synced` | Arrived from LAN snapshot or LAN message flow |
+| `deleted` | Soft-deleted transaction; excluded from normal queries |
 | `local` | Intentionally local-only setting that cloud pull should not overwrite |
 
 Two practical examples:
@@ -250,6 +324,21 @@ Two practical examples:
 | **Denormalized sale data** | Keeps receipts and transaction history stable after catalog changes |
 | **Plain-text categories** | Simpler filtering and editing for a single-store system |
 | **Archive flag on products** | Lets the UI hide products without destroying history |
+| **Tombstone tables** | Enables cloud propagation of hard deletes without relying on CASCADE in Supabase |
+
+---
+
+## Key Design Decisions
+
+| Decision | Rationale |
+|----------|-----------|
+| **Denormalized `cashier` in transactions** | User accounts can be deleted; historical transaction data stays intact |
+| **Soft-FK on `transaction_items.product_id`** | Products can be deleted/archived without breaking transaction history |
+| **Tombstone tables** (`product_deletions`, `user_deletions`) | Enables cloud propagation of hard deletes without relying on CASCADE in Supabase |
+| **Trigger-driven stock updates** | `inventory_logs` is the source of truth; `products.stock` is a derived cache |
+| **Trigger bypass on `sync_status = 'synced'`** | Prevents double-counting when cloud rows are pulled and inserted locally |
+| **`is_active` soft-delete on products** | Products with sales history can't be hard-deleted — they're archived instead |
+| **AI tables admin-only** | Reduces cashier DB size; AI assistant is an admin-only feature |
 
 ---
 
@@ -270,11 +359,14 @@ The local database is tuned for desktop POS responsiveness.
 | `idx_products_sync_status` | Find pending product sync work |
 | `idx_product_deletions_sync_status` | Push deletion tombstones |
 | `idx_inventory_logs_product_id` | Product stock history queries |
+| `idx_inventory_logs_created_at` | Date-range inventory log queries |
 | `idx_inventory_logs_sync_status` | Push pending inventory logs |
 | `idx_txn_created_at` | Reporting and date-range filters |
 | `idx_txn_sync_status` | Pending transaction sync lookup |
+| `idx_txn_lan_status` | LAN push state queries |
 | `idx_txn_items_txn_id` | Load transaction line items quickly |
 | `idx_users_sync_status` | Push/pull user changes |
+| `idx_user_deletions_sync_status` | Push user deletion tombstones |
 | `idx_ai_messages_convo` | Load conversation threads efficiently |
 
 ---
@@ -288,8 +380,8 @@ flowchart TD
     Sale["Sale completed on cashier"]
     Sale --> WriteTxn["Insert transaction header"]
     WriteTxn --> WriteItems["Insert transaction items"]
-    WriteItems --> Deduct["Update products.stock locally"]
-    Deduct --> Log["Create inventory_logs + queue sync work"]
+    WriteItems --> Deduct["Trigger applies change_amount to products.stock"]
+    Deduct --> Log["inventory_logs row created (sync_status = pending)"]
     Log --> Trigger["Supabase inventory_logs trigger updates cloud products.stock"]
 ```
 
@@ -308,6 +400,7 @@ Current first-run initialization seeds only foundational data:
 - Default category list
 - Default settings (`store_name`, `store_subtitle`)
 - Default Admin user if no Admin exists
+- `system_instance_id` UUID (admin only)
 
 Default seeded Admin credentials:
 
